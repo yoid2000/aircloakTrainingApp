@@ -1,3 +1,4 @@
+# We use python here instead of JSON so that we have the convenience of writing queries verbatim.
 exampleList = [
   {
     "heading": "Welcome",
@@ -292,6 +293,91 @@ JOIN (
 ON t1.client_id = t2.client_id
 GROUP BY 1
 ORDER BY 2 DESC
+'''
+    }
+  },
+  {
+    "heading": "A common mistake",
+    "description": '''
+<p class="desc">
+SELECT * FROM table LIMIT X
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "SELECT * LIMIT X",
+    "description": '''
+<p class="desc">
+One of the first things an analyst may do when presented with a new database is "SELECT * ... LIMIT X". This gives the analyst an immediate impression of what data he or she is dealing with.
+<p class="desc">
+With Aircloak this query neither gives an impression nor is immediate. Instead, it may take a very long time to tell the analyst nothing.
+<p class="desc">
+It doesn't give an impression because Aircloak suppresses data that pertains to too few individuals. Rather, analysts need to formulate queries that naturally result in aggregate values with at least several users.
+<p class="desc">
+It is not immediate because Aircloak applies LIMIT only after retrieving the data from the database. for "SELECT *", this means all rows!
+''',
+    "dbname": "scihub",
+    "cloak": {
+      "sql": '''
+SELECT *
+FROM sep2015
+ORDER BY uid
+LIMIT 10
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT *
+FROM sep2015
+LIMIT 10
+'''
+    }
+  },
+  {
+    "heading": "Understanding noise",
+    "description": '''
+<p class="desc">
+Aircloak adds noise to answers. The following set of examples illustrate how noise is added, how an analyst may guage how much noise is added, and potential pitfalls.
+<p class="desc">
+The following examples are best selected in order.
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "aggr_noise()",
+    "description": '''
+<p class="desc">
+Aircloak provides a set of aggregate functions that indicate how much noise it adds to each answer.
+The available functions are 'count_noise()', 'sum_noise()', 'avg_noise()', 'stddev_noise()', and 'variance_noise()'.
+They correspond to the functions 'count()', 'sum()', 'avg()', 'stddev()', and 'variance()'.
+<p class="desc">
+Aircloak adds random noise according to a Gaussian distribution ("bell curve"). The 'aggr_noise()' value is the standard deviation of the Gaussian sample.
+<p class="desc">
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+       -- , count_noise(*)
+FROM accounts
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
 '''
     }
   },

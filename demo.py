@@ -546,7 +546,7 @@ def makeAnswerHtml(sys):
     else:
         html += '''<br>'''
         pass
-    if s[sys]['err'] is not None:
+    if s[sys]['err'] is not None and len(s[sys]['err']) > 5:
         errMsg = str(s[sys]['err'])
         errMsg = errMsg.replace('\n','<br>')
         html += f'''<hr><font color="red">{errMsg}</font>'''
@@ -581,11 +581,12 @@ def makeAnswerHtml(sys):
 def readFromCache(s,user):
     (conn,c) = validateAndGetCursor()
     for sys in ['native','cloak']:
+        s[sys]['cached'] = False
         sql = s[sys]['sql']
         sql = sql.replace('\n',' ')
         sql = sql.replace('\r',' ')
         key = hashlib.sha1(sql.encode('utf-8')).hexdigest()
-        query = f'''SELECT ans, colInfo, rows, duration
+        query = f'''SELECT ans, err, colInfo, rows, duration
                 FROM cache
                 WHERE query = '{key}' AND sys = '{sys}';'''
         c.execute(query)
@@ -593,14 +594,25 @@ def readFromCache(s,user):
         if len(ans) == 0:
             # no hit, do nothing
             continue
+        # add 'err'
         s[sys]['ans'] = simplejson.loads(ans[0][0])
-        s[sys]['colInfo'] = simplejson.loads(ans[0][1])
-        s[sys]['numRows'] = ans[0][2]
-        s[sys]['duration'] = ans[0][3]
+        s[sys]['err'] = ans[0][1]
+        s[sys]['colInfo'] = simplejson.loads(ans[0][2])
+        s[sys]['numRows'] = ans[0][3]
+        s[sys]['duration'] = ans[0][4]
         s[sys]['cached'] = True
         global us
-        pp.pprint(us[user])
+        #pp.pprint(us[user])
     return
+
+def makeSerializable(ans):
+    newAns = []
+    for row in ans:
+        newRow = []
+        for cell in row:
+            newRow.append(str(f"{cell}"))
+        newAns.append(newRow)
+    return newAns
 
 def populateCache():
     # make a fake user from which to run the queries
@@ -630,12 +642,14 @@ def populateCache():
                 # Not in cache, so do lookup
                 job.append(gevent.spawn(doQuery,[sys,sql,s]))
                 gevent.wait(job)
-                ansStr = simplejson.dumps(s[sys]['ans'])
+                newAns = makeSerializable(s[sys]['ans'])
+                ansStr = simplejson.dumps(newAns)
                 colInfoStr = simplejson.dumps(s[sys]['colInfo'])
                 insert = f'''INSERT INTO cache VALUES (
                           '{key}',
                           '{sys}',
                           '{ansStr}',
+                          '{s[sys]['err']}',
                           '{colInfoStr}',
                           {s[sys]['numRows']},
                           {s[sys]['duration']});
@@ -677,20 +691,29 @@ def doQuery(params):
     s[sys]['err'] = None
     try:
         cur.execute(sql)
-    except psycopg2.Error as e:
+    except (psycopg2.Error, psycopg2.ProgrammingError) as e:
         end = time.perf_counter()
+        print(f"Error is '{e}'")
         s[sys]['err'] = e
         s[sys]['duration'] = round(end - start,3)
         s[sys]['conn'].close()
         s[sys]['conn'] = None
         return
     while True:
-        state = conn.poll()
+        try:
+            state = conn.poll()
+        except (psycopg2.Error, psycopg2.ProgrammingError) as e:
+            end = time.perf_counter()
+            error = str(f"{e}")
+            s[sys]['err'] = error
+            s[sys]['duration'] = round(end - start,3)
+            s[sys]['conn'].close()
+            s[sys]['conn'] = None
+            return
         if state == psycopg2.extensions.POLL_OK:
             break
         gevent.sleep(0.05)
     s[sys]['numRows'] = cur.rowcount
-    print(f"{s[sys]['numRows']} rows")
     s[sys]['colInfo'] = [desc[0] for desc in cur.description]
     cur.itersize = maxNumRows
     cnt = 0
@@ -726,6 +749,7 @@ def buildDatabase():
              (query text, 
              sys text,
              ans text,
+             err text,
              colInfo text,
              rows integer, 
              duration real);
@@ -764,7 +788,6 @@ def loadUserState(user):
         redirect('/')
     if user in us:
         # already loaded
-        print(f"loadUserState: already loaded {user}")
         return us[user]
     s = copy.deepcopy(initClientState)
     s['example'] = getUserExample(user)
@@ -866,6 +889,8 @@ def updateExample(index):
     s['native']['ansHtml'] = ''
     s['cloak']['ans'] = []
     s['native']['ans'] = []
+    s['cloak']['colInfo'] = None
+    s['native']['colInfo'] = None
     index = int(index)
     s['example'] = index
     putUserExample(user,index)
@@ -946,4 +971,5 @@ hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)    
 print("Your Computer Name is:" + hostname)    
 print("Your Computer IP Address is:" + IPAddr)
-run(host='0.0.0.0', port=8080, reloader=True, server='gevent')
+if __name__ == "__main__":
+    run(host='0.0.0.0', port=8080, reloader=True, server='gevent')

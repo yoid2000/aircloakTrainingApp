@@ -25,10 +25,8 @@ PySocks==1.6.8
 python-constraint==1.4.0
 python-dateutil==2.7.5
 pywin32==223
-requests==2.19.1
 ruamel-yaml==0.15.46
 simplejson==3.16.0
 six==1.11.0
-urllib3==1.23
 win-inet-pton==1.0.1
 wincertstore==0.2

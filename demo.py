@@ -17,6 +17,22 @@ import copy
 from demoConfig import getExampleList
 pp = pprint.PrettyPrinter(indent=4)
 
+# Env variables
+'''
+PORT (defaults to 8080)
+DATA_DIR (holds the database 'training.db', defaults to .)
+LOG_DIR (holds the log file 'training.log', defaults to .)
+NATIVE_USER (user name for native postgres, defaults to 'trainingApp'
+NATIVE_PASS (password for native postgres, no default)
+NATIVE_PORT (defaults to 5432)
+NATIVE_HOST (defaults to db001.gda-score.org)
+CLOAK_USER (user name for cloak postgres, defaults to 'training'
+CLOAK_PASS (password for cloak postgres, no default)
+CLOAK_PORT (defaults to 9432)
+CLOAK_HOST (defaults to attack.aircloak.com)
+'''
+
+
 # Layout parameters main page
 margin = 0.1    # cm
 padding = 5     # px
@@ -71,10 +87,6 @@ initClientState = {
         'cached' : False,
         'colInfo' : None,
         'conn' : None,
-        'host': 'db001.gda-score.org',
-        'port': 5432,
-        'user': 'francis@mpi-sws.org',
-        'password': 'boo',
         'numRows' : 0,
         'duration': 0
     },
@@ -87,10 +99,6 @@ initClientState = {
         'cached' : False,
         'colInfo' : None,
         'conn' : None,
-        'host': 'attack.aircloak.com',
-        'port': 9432,
-        'user': 'training',
-        'password': 'boo',
         'numRows' : 0,
         'duration': 0
     },
@@ -102,8 +110,22 @@ us = {
 
 # global other system state
 ss = {
-        'conn' : None,
-        'cursor' : None,
+    'conn' : None,
+    'cursor' : None,
+    'dbPath' : '',
+    'logPath' : '',
+    'native': {
+        'host': 'db001.gda-score.org',
+        'port': 5432,
+        'user': 'trainingApp',
+        'password': '',
+    },
+    'cloak': {
+        'host': 'attack.aircloak.com',
+        'port': 9432,
+        'user': 'training',
+        'password': '',
+    },
 }
 
 def makeDbPulldown():
@@ -669,13 +691,13 @@ def doQuery(params):
     sql = sql.replace('\n',' ')
     sql = sql.replace('\r',' ')
     connStr = f'''
-            host={s[sys]['host']}
-            port={s[sys]['port']}
+            host={ss[sys]['host']}
+            port={ss[sys]['port']}
             dbname={s['dbname']}
-            user={s[sys]['user']}
-            password={s[sys]['password']}
+            user={ss[sys]['user']}
+            password={ss[sys]['password']}
             '''
-    print(connStr)
+    #print(connStr)
     conn = psycopg2.connect(connStr, async_=1)
     while True:
         state = conn.poll()
@@ -741,8 +763,8 @@ def reloadExamples():
     return
 
 def buildDatabase():
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    db = os.path.join(dir_path,'database.db')
+    global ss
+    db = ss['dbPath']
     conn = sqlite3.connect(db)
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS cache
@@ -761,16 +783,14 @@ def buildDatabase():
 
 def makeDbConnection():
     global ss
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    db = os.path.join(dir_path,'database.db')
+    db = ss['dbPath']
     ss['conn'] = sqlite3.connect(db)
     ss['cursor'] = ss['conn'].cursor()
     return
 
 def connectDatabase():
     global ss
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    db = os.path.join(dir_path,'database.db')
+    db = ss['dbPath']
     conn = sqlite3.connect(db)
     c = conn.cursor()
     ss['conn'] = conn
@@ -778,7 +798,7 @@ def connectDatabase():
     if (not isinstance(ss['conn'], sqlite3.Connection) or
             not isinstance(ss['cursor'], sqlite3.Cursor)):
         # Should absolutely never happen....
-        print("Failed to connect to database.db")
+        print("Failed to connect to training.db")
         quit()
     return
 
@@ -794,7 +814,6 @@ def loadUserState(user):
     us[user] = s
     return s
 
-# This basically 
 def validateAndGetCursor():
     global ss
     if (not isinstance(ss['conn'], sqlite3.Connection) or
@@ -844,6 +863,47 @@ def getCookie():
         ip = request.environ.get('REMOTE_ADDR')
         cookie = hashlib.sha512(ip).hexdigest()
     return cookie
+
+def getEnvVars():
+    global ss
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    env = os.environ.get('DATA_DIR')
+    if env is not None:
+        dir_path = env
+    ss['dbPath'] = os.path.join(dir_path,'training.db')
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    env = os.environ.get('LOG_DIR')
+    if env is not None:
+        dir_path = env
+    ss['logPath'] = os.path.join(dir_path,'training.log')
+    env = os.environ.get('NATIVE_USER')
+    if env is not None:
+        ss['native']['user'] = env
+    env = os.environ.get('NATIVE_PASS')
+    if env is None:
+        print("Must set environment variable NATIVE_PASS")
+        quit()
+    ss['native']['password'] = env
+    env = os.environ.get('NATIVE_PORT')
+    if env is not None:
+        ss['native']['port'] = int(env)
+    env = os.environ.get('NATIVE_HOST')
+    if env is not None:
+        ss['native']['host'] = env
+    env = os.environ.get('CLOAK_USER')
+    if env is not None:
+        ss['cloak']['user'] = env
+    env = os.environ.get('CLOAK_PASS')
+    if env is None:
+        print("Must set environment variable CLOAK_PASS")
+        quit()
+    ss['cloak']['password'] = env
+    env = os.environ.get('CLOAK_PORT')
+    if env is not None:
+        ss['cloak']['port'] = env
+    env = os.environ.get('CLOAK_HOST')
+    if env is not None:
+        ss['cloak']['host'] = env
 
 @route('/refresh')
 def doRefresh():
@@ -961,8 +1021,9 @@ def welcome():
     loadUserState(cookie)
     redirect("/training")
 
+getEnvVars()
 # Set to DEBUG for more detail
-logging.basicConfig(filename='log.log',level=logging.INFO,
+logging.basicConfig(filename=ss['logPath'],level=logging.INFO,
         format='%(asctime)s %(message)s')
 random.seed()
 buildDatabase()
@@ -970,8 +1031,11 @@ connectDatabase()
 hostname = socket.gethostname()    
 IPAddr = socket.gethostbyname(hostname)    
 port = os.environ.get('PORT')
+print(port)
 if port is None:
     port = 8080
+else:
+    port = int(port)
 print("Your Computer Name is:" + hostname)    
 print("Your Computer IP Address is:" + IPAddr)
 if __name__ == "__main__":

@@ -509,15 +509,17 @@ def is_number(s):
 def computeErrors():
     user = getCookie()
     s = loadUserState(user)
-    # This routine assume that the last column is the measure, and the
+    # This routine assume that the last native column is the measure, and the
     # previous columns are the values
     if s['native']['colInfo'] is None:
+        return
+    if s['native']['colInfo'][0] != s['cloak']['colInfo'][0]:
         return
     numValCols = len(s['native']['colInfo']) - 1
     #if numValCols <= 0:
         #return
     for i in range(numValCols):
-        if s['native']['colInfo'] != s['cloak']['colInfo']:
+        if s['native']['colInfo'][i] != s['cloak']['colInfo'][i]:
             return
     measureIndex = numValCols
     cloakDict = {}
@@ -542,12 +544,12 @@ def computeErrors():
             nVal = row[measureIndex]
             if is_number(row[measureIndex]) is False:
                 return
-            absError = nVal - cVal
+            absError = round((nVal - cVal),2)
             maxVal = max([abs(nVal),abs(cVal)])
             if maxVal == 0:
                 relError = '---'
             else:
-                relError = round((abs(nVal-cVal) / maxVal)*100,1)
+                relError = round((abs(nVal-cVal) / maxVal)*100,2)
             newRow.append(f'''{absError}, {relError}%''')
         else:
             newRow.append('')
@@ -627,12 +629,17 @@ def readFromCache(s,user):
         #pp.pprint(us[user])
     return
 
-def makeSerializable(ans):
+def setPrecision(ans):
     newAns = []
     for row in ans:
         newRow = []
         for cell in row:
-            newRow.append(str(f"{cell}"))
+            if isinstance(cell, float):
+                newRow.append(round(cell,3))
+            elif isinstance(cell, datetime.datetime):
+                newRow.append(str(f"{cell}"))
+            else:
+                newRow.append(cell)
         newAns.append(newRow)
     return newAns
 
@@ -664,7 +671,7 @@ def populateCache():
                 # Not in cache, so do lookup
                 job.append(gevent.spawn(doQuery,[sys,sql,s]))
                 gevent.wait(job)
-                newAns = makeSerializable(s[sys]['ans'])
+                newAns = setPrecision(s[sys]['ans'])
                 ansStr = simplejson.dumps(newAns)
                 colInfoStr = simplejson.dumps(s[sys]['colInfo'])
                 insert = f'''INSERT INTO cache VALUES (
@@ -748,6 +755,7 @@ def doQuery(params):
     #pp.pprint(s[sys]['ans'])
     #pp.pprint(s[sys]['colInfo'])
     end = time.perf_counter()
+    s[sys]['ans'] = setPrecision(s[sys]['ans'])
     s[sys]['duration'] = round(end - start,3)
     s[sys]['conn'].close()
     s[sys]['conn'] = None

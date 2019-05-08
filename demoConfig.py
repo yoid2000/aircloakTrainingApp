@@ -27,7 +27,7 @@ A series of examples are listed on the left. Each example provides SQL queries f
     <p class="desc">
     For users new to the system, it is useful to take the examples in the order provided.
     <p class="desc">
-    Click "Run" to execute the query for both Aircloak and native. You can cancel a query by canceling the page load on your browser.
+    The app displays the results of a cached query. Click "Run" to re-execute the query for both Aircloak and native, or to execute any changes you made to the SQL.
     <p class="desc">
     This app has access to several different databases; <a target=_blank href="https://www.gda-score.org/resources/databases/czech-banking-data/">banking</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/usa-census-database/">census0</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/database-2/">scihub</a>, and <a target=_blank href="https://www.gda-score.org/resources/databases/database-1/">taxi</a>. You must select the appropriate database from the pull-down menu if you write a query.
     <p class="desc">
@@ -311,12 +311,12 @@ SELECT * FROM table LIMIT X
     }
   },
   {
-    "heading": "SELECT * LIMIT X",
+    "heading": "SELECT * ... LIMIT X",
     "description": '''
 <p class="desc">
 One of the first things an analyst may do when presented with a new database is "SELECT * ... LIMIT X". This gives the analyst an immediate impression of what data he or she is dealing with.
 <p class="desc">
-With Aircloak this query neither gives an impression nor is immediate. Instead, it may take a very long time to tell the analyst nothing.
+With Aircloak this query neither gives an impression nor is immediate. Instead, it may take a very long time to tell the analyst nothing. In this query on the scihub dataset, the cloak aborted the query after roughly two minutes.
 <p class="desc">
 It doesn't give an impression because Aircloak suppresses data that pertains to too few individuals. Rather, analysts need to formulate queries that naturally result in aggregate values with at least several users.
 <p class="desc">
@@ -336,6 +336,37 @@ LIMIT 10
 SELECT *
 FROM sep2015
 LIMIT 10
+'''
+    }
+  },
+  {
+    "heading": "Another way",
+    "description": '''
+<p class="desc">
+By putting the LIMIT clause in a sub-query, the database does the limiting rather than the cloak. As a result much less data is transferred from the database to the cloak, and the query executes quickly.
+<p class="desc">
+However, the resulting data is still not useful because the cloak suppresses the values pertaining to too few individuals.
+<p class="desc">
+Note by the way that Aircloak requires an ORDER BY clause along with the LIMIT clause.
+''',
+    "dbname": "scihub",
+    "cloak": {
+      "sql": '''
+SELECT *
+FROM (
+    SELECT *
+    FROM sep2015
+    ORDER BY uid
+    LIMIT 10 ) t
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT *
+FROM (
+    SELECT *
+    FROM sep2015
+    LIMIT 10 ) t
 '''
     }
   },
@@ -365,19 +396,101 @@ They correspond to the functions 'count()', 'sum()', 'avg()', 'stddev()', and 'v
 <p class="desc">
 Aircloak adds random noise according to a Gaussian distribution ("bell curve"). The 'aggr_noise()' value is the standard deviation of the Gaussian sample.
 <p class="desc">
+From the query below, we see that a noise value with a standard deviation of 1.0 was added to the answer. In this particular case, it was not enough to modify the resulting count, but an analyst wouldn't normally know that.
+<p class="desc">
 ''',
     "dbname": "banking",
     "cloak": {
       "sql": '''
-SELECT count(*)
-       -- , count_noise(*)
+SELECT count(DISTINCT client_id),
+       count_noise(DISTINCT client_id)
 FROM accounts
 '''
     },
     "native": {
       "sql": '''
-SELECT count(*)
+SELECT count(DISTINCT client_id)
 FROM accounts
+'''
+    }
+  },
+  {
+    "heading": "Noise per condition",
+    "description": '''
+<p class="desc">
+Aircloak has a unique way of adding noise which we call "sticky layered noise".  Sticky means that the same query produces the same noise. Try re-running the query, and you will see that you get the same noisy answer every time.
+<p class="desc">
+Layered means that there are multiple noise values, one or two per condition.
+The query here is the same as the previous, with the exception that one condition has been added (Aircloak treats a pair of inequalities as one condition). The amount of noise has increased from standard deviation 1.0 to sqrt(2), which Aircloak rounds to 1.4.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(DISTINCT client_id),
+       count_noise(DISTINCT client_id)
+FROM accounts
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(DISTINCT client_id)
+FROM accounts
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50
+'''
+    }
+  },
+  {
+    "heading": "Two conditions",
+    "description": '''
+<p class="desc">
+Now with two conditions, the noise increases to standard deviation of 2.0.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(DISTINCT client_id),
+       count_noise(DISTINCT client_id)
+FROM accounts
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50 AND
+      frequency = 'POPLATEK MESICNE'
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(DISTINCT client_id)
+FROM accounts
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50 AND
+      frequency = 'POPLATEK MESICNE'
+'''
+    }
+  },
+  {
+    "heading": "User-dependent",
+    "description": '''
+<p class="desc">
+Aircloak adds enough noise to hide the influence of individual users. Often some users contribute more to the answer than other users. This wasn't the case in the previous three queries because we were counting distinct users, so every user contributed exactly one, and the amount of noise was enough to hide each user.
+<p class="desc">
+In this query, however, we are taking the sum total of the amount of all banking transactions, and users with more transactions at higher amounts contribute more to the answer. As a result, the amount of noise is enough to hide these heavy contributors. In this case, the standard deviation of the noise is around 2.9 million! Correspondingly, the absolute error is around 2.7 million. However, the relative error is still small (less than half a percent)!
+<p class="desc">
+This better illustrates the need for the aggr_noise() functions, as it is otherwise troublesome for the analyst to have to figure out roughly how much the heavy hitting users contribute.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT sum(amount),
+       sum_noise(amount)
+FROM transactions
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT sum(amount)
+FROM transactions
 '''
     }
   },

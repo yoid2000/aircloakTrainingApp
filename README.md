@@ -16,12 +16,12 @@ Add menu items to demoConfig.py.
 
 ### Optional
 * PORT (defaults to 8080)
-* DATA_DIR (holds the database 'training.db', defaults to .)
-* LOG_DIR (holds the log file 'training.log', defaults to .)
-* NATIVE_USER (user name for native postgres, defaults to 'trainingApp'
+* DATA_DIR (holds the database 'training.db', defaults to '.')
+* LOG_DIR (holds the log file 'training.log', defaults to '.')
+* NATIVE_USER (user name for native postgres, defaults to 'trainingApp')
 * NATIVE_PORT (defaults to 5432)
 * NATIVE_HOST (defaults to db001.gda-score.org)
-* CLOAK_USER (user name for cloak postgres, defaults to 'training'
+* CLOAK_USER (user name for cloak postgres, defaults to 'training')
 * CLOAK_PORT (defaults to 9432)
 * CLOAK_HOST (defaults to attack.aircloak.com)
 

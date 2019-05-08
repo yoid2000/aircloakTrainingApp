@@ -74,7 +74,7 @@ initClientState = {
         'host': 'db001.gda-score.org',
         'port': 5432,
         'user': 'francis@mpi-sws.org',
-        'password': 'mo7eiFaeP2ae',
+        'password': 'boo',
         'numRows' : 0,
         'duration': 0
     },
@@ -90,7 +90,7 @@ initClientState = {
         'host': 'attack.aircloak.com',
         'port': 9432,
         'user': 'training',
-        'password': 'trainingpass123',
+        'password': 'boo',
         'numRows' : 0,
         'duration': 0
     },

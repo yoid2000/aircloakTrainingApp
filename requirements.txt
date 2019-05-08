@@ -1,7 +1,6 @@
 bottle==0.12.16
-cffi==1.12.3
 gevent==1.4.0
-greenlet==0.4.15
 psycopg2==2.8.2
-pycparser==2.19
 simplejson==3.16.0
+## The following requirements were added by pip freeze:
+greenlet==0.4.15

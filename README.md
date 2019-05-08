@@ -7,4 +7,4 @@ The app is based on the bottle web framework.
 Add menu items to demoConfig.py.
 
 ## To run
-The app automatically restarts with any code changes. If new menu items were added, then go to `domain:8080/populateCache` to add the new queries to the cache.
+The app automatically restarts with any code changes. If new menu items were added, then go to `domain:port/populateCache` to add the new queries to the cache.

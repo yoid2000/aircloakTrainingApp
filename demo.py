@@ -969,7 +969,10 @@ buildDatabase()
 connectDatabase()
 hostname = socket.gethostname()    
 IPAddr = socket.gethostbyname(hostname)    
+port = os.environ.get('PORT')
+if port is None:
+    port = 8080
 print("Your Computer Name is:" + hostname)    
 print("Your Computer IP Address is:" + IPAddr)
 if __name__ == "__main__":
-    run(host='0.0.0.0', port=8080, reloader=True, server='gevent')
+    run(host='0.0.0.0', port=port, reloader=True, server='gevent')

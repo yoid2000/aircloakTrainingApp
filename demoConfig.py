@@ -376,6 +376,12 @@ FROM (
 <p class="desc">
 Aircloak adds noise to answers. The following set of examples illustrate how noise is added, how an analyst may guage how much noise is added, and potential pitfalls.
 <p class="desc">
+These examples illustrate:
+<ul>
+<li>&nbsp&nbsp&nbsp&nbspRandom noise, and how to determine its amount</li>
+<li>&nbsp&nbsp&nbsp&nbspFlattening of extreme values (the amount of which cannot be determined)</li>
+</ul>
+<p class="desc">
 The following examples are best selected in order.
 ''',
     "dbname": "",
@@ -475,7 +481,7 @@ WHERE cli_district_id >= 0 AND
 <p class="desc">
 Aircloak adds enough noise to hide the influence of individual users. Often some users contribute more to the answer than other users. This wasn't the case in the previous three queries because we were counting distinct users, so every user contributed exactly one, and the amount of noise was enough to hide each user.
 <p class="desc">
-In this query, however, we are taking the sum total of the amount of all banking transactions, and users with more transactions at higher amounts contribute more to the answer. As a result, the amount of noise is enough to hide these heavy contributors. In this case, the standard deviation of the noise is around 2.9 million! Correspondingly, the absolute error is around 2.7 million. However, the relative error is still small (less than half a percent)!
+In this query, however, we are taking the sum total of the amount of all banking transactions, and users with more transactions at higher amounts contribute more to the answer. As a result, the amount of noise is enough to hide the heavy contributors. In this case, the standard deviation of the noise is around 5.4 million! Correspondingly, the absolute error is around 8 million. However, the relative error is still small (less than one tenth of a percent)!
 <p class="desc">
 This better illustrates the need for the aggr_noise() functions, as it is otherwise troublesome for the analyst to have to figure out roughly how much the heavy hitting users contribute.
 ''',
@@ -485,12 +491,79 @@ This better illustrates the need for the aggr_noise() functions, as it is otherw
 SELECT sum(amount),
        sum_noise(amount)
 FROM transactions
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50 AND
+      frequency = 'POPLATEK MESICNE'
 '''
     },
     "native": {
       "sql": '''
 SELECT sum(amount)
 FROM transactions
+WHERE cli_district_id >= 0 AND
+      cli_district_id < 50 AND
+      frequency = 'POPLATEK MESICNE'
+'''
+    }
+  },
+  {
+    "heading": "Extreme value flattening",
+    "description": '''
+<p class="desc">
+It may have occurred to you that one could determine roughly what the extreme value is by looking at the aggr_noise() value. This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
+<p class="desc">
+The query below is a good example of this. The noise has a standard deviation of 1250, and yet the absolute error is over 30K. Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. This can be seen in the next example.
+<p class="desc">
+Note also that the relative error, nearly 15%, is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*),
+       count_noise(*)
+FROM sep2015
+WHERE country = 'United States'
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*), count_noise(*)
+FROM sep2015
+WHERE country = 'United States'
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbsp(More detail)",
+    "description": '''
+<p class="desc">
+It may have occurred to you that one could determine roughly what the extreme value is by looking at the aggr_noise() value. This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
+<p class="desc">
+The query below is a good example of this. The noise has a standard deviation of 1250, and yet the absolute error is over 30K. Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. This can be seen in the next example.
+<p class="desc">
+Note also that the relative error, nearly 15%, is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT max(total_rows)
+FROM (
+    SELECT uid,
+           count(*) AS total_rows
+    FROM sep2015
+    WHERE country = 'United States'
+    GROUP BY 1 ) t
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT total_rows
+FROM (
+    SELECT uid,
+           count(*) AS total_rows
+    FROM sep2015
+    WHERE country = 'United States'
+    GROUP BY 1 ) t
 '''
     }
   },

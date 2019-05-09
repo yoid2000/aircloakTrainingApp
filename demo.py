@@ -511,7 +511,7 @@ def computeErrors():
     s = loadUserState(user)
     # This routine assume that the last native column is the measure, and the
     # previous columns are the values
-    if s['native']['colInfo'] is None:
+    if s['native']['colInfo'] is None or s['cloak']['colInfo'] is None:
         return
     if s['native']['colInfo'][0] != s['cloak']['colInfo'][0]:
         return

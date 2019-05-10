@@ -2,6 +2,7 @@ from gevent import monkey; monkey.patch_all()
 import gevent
 from bottle import get, post, route, run, template, request, response, static_file, redirect
 import logging
+import decimal
 import simplejson
 import hashlib
 import sqlite3
@@ -281,6 +282,7 @@ def makeHtml():
         border-style: none;
     }}
     .items-list {{
+        overflow: auto;
         white-space: wrap;
         float: left;
         flex-wrap: wrap;
@@ -627,13 +629,22 @@ def readFromCache(s,user):
         #pp.pprint(us[user])
     return
 
+def smartRound(val):
+    for i in [2,3,4,5,6]:
+        rounded = round(val,i)
+        asString = str(rounded)
+        if asString[-2:] == '00':
+            rounded = round(val,i-1)
+            return rounded
+    return rounded
+
 def setPrecision(ans):
     newAns = []
     for row in ans:
         newRow = []
         for cell in row:
-            if isinstance(cell, float):
-                newRow.append(round(cell,3))
+            if isinstance(cell, float) or isinstance(cell, decimal.Decimal):
+                newRow.append(smartRound(cell))
             elif isinstance(cell, datetime.datetime):
                 newRow.append(str(f"{cell}"))
             else:

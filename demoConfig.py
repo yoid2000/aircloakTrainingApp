@@ -31,7 +31,10 @@ A series of examples are listed on the left. Each example provides SQL queries f
     <p class="desc">
     This app has access to several different databases; <a target=_blank href="https://www.gda-score.org/resources/databases/czech-banking-data/">banking</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/usa-census-database/">census0</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/database-2/">scihub</a>, and <a target=_blank href="https://www.gda-score.org/resources/databases/database-1/">taxi</a>. You must select the appropriate database from the pull-down menu if you write a query.
     <p class="desc">
-    In addition to the query results for both Aircloak and native queries, the app usually displays the absolute and relative error between the noisy Aircloak and correct native answers. The app indicates how many rows are in each answer, and the query execution time for each. However, the app displays only the first 150 rows of data''',
+    The app indicates how many rows are in each answer, and the query execution time for each. However, the app displays only the first 150 rows of data
+    <p class="desc">
+    In addition to the query results for both Aircloak and native queries, the app usually displays the absolute and relative error between the noisy Aircloak and correct native answers. The error is not displayed in cases where there is no matching column value between the cloak and the native output for the displayed rows.
+    ''',
     "dbname": "",
     "cloak": {
       "sql": ""
@@ -376,7 +379,7 @@ FROM (
 <p class="desc">
 Aircloak adds noise to answers. The following set of examples illustrate how noise is added, how an analyst may guage how much noise is added, and potential pitfalls.
 <p class="desc">
-These examples illustrate:
+From these examples you will learn about:
 <ul>
 <li>&nbsp&nbsp&nbsp&nbspRandom noise, and how to determine its amount</li>
 <li>&nbsp&nbsp&nbsp&nbspFlattening of extreme values (the amount of which cannot be determined)</li>
@@ -568,6 +571,207 @@ FROM (
     GROUP BY 1 ) t
 GROUP BY 1
 ORDER BY 1 DESC
+'''
+    }
+  },
+  {
+    "heading": "Understanding suppression",
+    "description": '''
+<p class="desc">
+Aircloak suppresses answers that pertain to too few individuals. The following set of example illustrate this anonymization feature.
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "Text",
+    "description": '''
+<p class="desc">
+This example queries for the number of users with each last name and displays them in descending order.
+<p class="desc">
+Simply adding noise to an answer is not enough to preserve anonymity. If there is only one user in the database with a given last name, then merely displaying this last name would break anonymity.
+<p class="desc">
+The native answer here shows that there are 3895 distinct last names (rows) in the database. Aircloak, however, only reveals 158 of these names: those that are shared by multiple users. The remaining names are hidden.
+<p class="desc">
+To inform the analyst that last names have been suppressed, and to give an indication of how much data has been suppressed, Aircloak places all of the suppressed rows in a bucket labeled '*', and then displays the anonymized aggregate for that bucket.
+<p class="desc">
+For this query, essentially what happens is that all suppressed last names are replaced with the value '*', and then displayed as though '*' is a last name. From this we see that there are around 4123 users whose last names have been suppressed.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT lastname,
+       count(DISTINCT client_id)
+FROM accounts
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT lastname,
+       count(DISTINCT client_id)
+FROM accounts
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    }
+  },
+  {
+    "heading": "Numbers",
+    "description": '''
+<p class="desc">
+This is a similar kind of query, but this time displaying numbers instead of text.
+<p class="desc">
+In this case, rather than return '*' as the default symbol for identifying the suppression bucket, Aircloak returns 'NULL' (which here is displayed as 'None' because of the python implementation). Aircloak can't return '*' for numbers because '*' is a string and therefore the wrong type.
+<p class="desc">
+Returning 'NULL' as the suppression bucket label has the problem that database values that are really NULL, and therefore may not be suppressed, would be mixed with suppressed (non-NULL) values. To avoid this confusion, the analyst can add a 'WHERE ... IS NOT NULL' condition.
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT pickup_latitude,
+       count(*)
+FROM jan08
+WHERE pickup_latitude IS NOT NULL
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT pickup_latitude,
+       count(*)
+FROM jan08
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspSmarter query",
+    "description": '''
+<p class="desc">
+In cases where there is substantial suppression, the analyst may use the 'bucket()' function to avoid rows with too few users.
+<p class="desc">
+In the example below, the cloak output shows a suppression bucket (10th row labeled 'None'), but there are relatively few rows in this bucket (1152).
+<p class="desc">
+Note that normally one would more likely order this output by pickup_latitude, but we order by count so as to illustrate the reduced suppression.
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT bucket(pickup_latitude BY 0.0001)
+           AS lat,
+       count(*)
+FROM jan08
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT floor(pickup_latitude*10000)/10000
+           AS latitude,
+       count(*)
+FROM jan08
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    }
+  },
+  {
+    "heading": "Two columns",
+    "description": '''
+<p class="desc">
+This query builds a 2-column histogram of number of rides from the number of riders and trip distance.
+<p class="desc">
+Aircloak attempts to display as much information as it can before suppressing. The first row from the cloak shows that there is very little suppression where both column values are hidden. The next six rows also have suppression, but only of the distance information. Aircloak shows the amount of suppression for each of six rider counts.
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT passenger_count AS riders,
+       trip_distance AS distance,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT passenger_count AS riders,
+       trip_distance AS distance,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+'''
+    }
+  },
+  {
+    "heading": "Two columns (reversed)",
+    "description": '''
+<p class="desc">
+By default, Aircloak attempts to display as much as it can about columns to the left, and do suppression of values on columns to the right.  
+This query is the same 2-column histogram, but with the position of the first and second columns reversed.
+<p class="desc">
+Here we see that Aircloak is showing distance values that were suppressed in the previous query, and suppressing rider counts instead.
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT trip_distance AS distance,
+       passenger_count AS riders,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT trip_distance AS distance,
+       passenger_count AS riders,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspSmarter query",
+    "description": '''
+<p class="desc">
+Suppression can be reduced by placing values in buckets. In this case, we use the round function to place distance into buckets of one mile.
+<p class="desc">
+Though not displayed here, there is still a small amount of suppression (the native database outputs 232 rows against the cloaks 172). Most of the information, however, is preserved by the cloak.
+<p class="desc">
+(Note that the cloak automatically casts the output of the 'round()' function as an integer. To align the output of the native and cloak queries here, we explicitly cast the native distance column as 'int'.)
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT round(trip_distance) AS distance,
+       passenger_count AS riders,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+ORDER BY 1,2
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT round(trip_distance)::int
+           AS distance,
+       passenger_count AS riders,
+       count(*) AS rides
+FROM jan08
+GROUP by 1,2
+ORDER BY 1,2
 '''
     }
   },

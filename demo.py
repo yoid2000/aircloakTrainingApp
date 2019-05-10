@@ -897,7 +897,7 @@ def getUserExample(user):
         return None
     ans = c.fetchall()
     if len(ans) == 0:
-        return None
+        return 0
     return ans[0][0]
 
 def putUserExample(user,example):

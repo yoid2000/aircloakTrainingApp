@@ -478,12 +478,35 @@ def makeHtml():
     '''
     return html
 
+def getHeaderList(exList):
+    headerList = []
+    for i in range(len(exList)):
+        ex = exList[i]
+        if len(ex['cloak']['sql']) == 0:
+            headerList.append(i)
+    headerList.append(10000000000)
+    return headerList
+
 def makeExamplesHtml():
     user = getCookie()
     s = loadUserState(user)
+    headerList = getHeaderList(s['exampleList'])
+    print(headerList)
     html = '''<dl>'''
+    curHead = 0
+    blue = s['example']
     for i in range(len(s['exampleList'])):
+        if i == headerList[curHead+1]:
+            curHead += 1
+        print(f"curHead {curHead}, val {headerList[curHead]}")
         ex = s['exampleList'][i]
+        print(blue, i, headerList[curHead], headerList[curHead+1])
+        if (len(ex['cloak']['sql']) > 0 and
+                (blue < headerList[curHead] or
+                    blue >= headerList[curHead+1])):
+            # This is not a header, and we don't want to print it
+            print("continue")
+            continue
         end = ''
         if len(ex['cloak']['sql']) == 0:
             start = '''<dt><strong>'''
@@ -1011,6 +1034,8 @@ def updateExample(index):
     s['native']['ans'] = []
     s['cloak']['colInfo'] = None
     s['native']['colInfo'] = None
+    s['cloak']['err'] = None
+    s['native']['err'] = None
     index = int(index)
     s['example'] = index
     putUserExample(user,index)
@@ -1098,5 +1123,10 @@ else:
     port = int(port)
 print("Your Computer Name is:" + hostname)    
 print("Your Computer IP Address is:" + IPAddr)
+trainDev = os.environ.get('TRAIN_DEV')
+if trainDev is None:
+    reloader = False
+else:
+    reloader = True
 if __name__ == "__main__":
-    run(host='0.0.0.0', port=port, reloader=True, server='gevent')
+    run(host='0.0.0.0', port=port, reloader=reloader, server='gevent')

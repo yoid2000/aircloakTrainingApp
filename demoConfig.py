@@ -31,7 +31,7 @@ A series of examples are listed on the left. Each example provides SQL queries f
     <p class="desc">
     This app has access to several different databases; <a target=_blank href="https://www.gda-score.org/resources/databases/czech-banking-data/">banking</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/usa-census-database/">census0</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/database-2/">scihub</a>, and <a target=_blank href="https://www.gda-score.org/resources/databases/database-1/">taxi</a>. You must select the appropriate database from the pull-down menu if you write a query.
     <p class="desc">
-    The app indicates how many rows are in each answer, and the query execution time for each. However, the app displays only the first 150 rows of data
+    The app indicates how many rows are in each answer, and the query execution time for each. However, the app displays only the first 100 rows of data
     <p class="desc">
     In addition to the query results for both Aircloak and native queries, the app usually displays the absolute and relative error between the noisy Aircloak and correct native answers. The error is not displayed in cases where there is no matching column value between the cloak and the native output for the displayed rows.
     ''',
@@ -776,8 +776,43 @@ ORDER BY 1,2
     }
   },
   {
-    "heading": "",
-    "description": '''<p class="desc">''',
+    "heading": "When to suppress?",
+    "description": '''
+<p class="desc">
+The threshold for the number of distinct users at which Aircloak decides whether or not to suppress is not a hard threshold. Rather it is based on a sticky layered noise value with mean 4. In addition, Aircloak always suppresses rows for which only a single user contributes.
+<p class="desc">
+Put another way, any row reported by Aircloak has at least two distinct users, but a row with two distinct users may well not be reported.
+<p class="desc">
+This query illustrates the noisy threshold. The native answer lists the first 100 of the 197 last names for which exactly two users have the last name. The cloak answer has 31 names, but only one of them actually has two distinct users ('Love').
+<p class="desc">
+The reason for this is as follows. For each last name, Aircloak adds noise to the true count of distinct users. Aircloak then selects those for which the noisy count is 2. Of these, Aircloak suppresses any where the true count is 1. Aircloak then computes the noisy threshold for the remaining lastnames, and suppresses those where the noisy threshold is greater than 2.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT lastname
+FROM accounts
+GROUP BY lastname
+HAVING count(DISTINCT client_id) = 2
+ORDER BY lastname DESC
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT lastname
+FROM accounts
+GROUP BY lastname
+HAVING count(DISTINCT client_id) = 2
+ORDER BY lastname DESC
+'''
+    }
+  },
+  {
+    "heading": "Visit again!",
+    "description": '''
+<p class="desc">
+We are constantly adding new examples, so visit again from time to time!
+''',
     "dbname": "",
     "cloak": {
       "sql": ""

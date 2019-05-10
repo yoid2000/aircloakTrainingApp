@@ -510,13 +510,15 @@ WHERE cli_district_id >= 0 AND
     "heading": "Extreme value flattening",
     "description": '''
 <p class="desc">
-It may have occurred to you that one could determine roughly what the extreme value is by looking at the aggr_noise() value. This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
+It may have occurred to you that one could determine roughly what the extreme value is by looking at the aggr_noise() value. This would be a privacy violation.
+<p class="desc">
+This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
 <p class="desc">
 The query below is a good example of this. The noise has a standard deviation of 1250, and yet the absolute error is over 30K. Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. This can be seen in the next example.
 <p class="desc">
 Note also that the relative error, nearly 15%, is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
 ''',
-    "dbname": "banking",
+    "dbname": "scihub",
     "cloak": {
       "sql": '''
 SELECT count(*),
@@ -527,43 +529,45 @@ WHERE country = 'United States'
     },
     "native": {
       "sql": '''
-SELECT count(*), count_noise(*)
+SELECT count(*)
 FROM sep2015
 WHERE country = 'United States'
 '''
     }
   },
   {
-    "heading": "-&nbsp&nbsp&nbsp(More detail)",
+    "heading": "-&nbsp&nbsp&nbspMore detail",
     "description": '''
 <p class="desc">
-It may have occurred to you that one could determine roughly what the extreme value is by looking at the aggr_noise() value. This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
+This query counts the number of users that had each number of downloads, and then displays them in descending order of number of downloads. Note that this would not necessarily be the best way to query the cloak for this data, but we do it here primarily to show that a single user has an extreme number of downloads, nearly double that of the next user.
 <p class="desc">
-The query below is a good example of this. The noise has a standard deviation of 1250, and yet the absolute error is over 30K. Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. This can be seen in the next example.
-<p class="desc">
-Note also that the relative error, nearly 15%, is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
+This query also illustrates why the relative error of the previous query is high (15%): the extreme value itself accounts for 16% of the total downloads in this case. Aircloak necessarily hides this user (as would any anonymization mechanism), and so a high error is unavoidable.
 ''',
-    "dbname": "banking",
+    "dbname": "scihub",
     "cloak": {
       "sql": '''
-SELECT max(total_rows)
+SELECT downloads, count(*)
 FROM (
     SELECT uid,
-           count(*) AS total_rows
+           count(*) AS downloads
     FROM sep2015
     WHERE country = 'United States'
     GROUP BY 1 ) t
+GROUP BY 1
+ORDER BY 1 DESC
 '''
     },
     "native": {
       "sql": '''
-SELECT total_rows
+SELECT downloads, count(*)
 FROM (
     SELECT uid,
-           count(*) AS total_rows
+           count(*) AS downloads
     FROM sep2015
     WHERE country = 'United States'
     GROUP BY 1 ) t
+GROUP BY 1
+ORDER BY 1 DESC
 '''
     }
   },

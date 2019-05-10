@@ -25,6 +25,14 @@ Add menu items to demoConfig.py.
 * CLOAK_PORT (defaults to 9432)
 * CLOAK_HOST (defaults to attack.aircloak.com)
 
+
+### Populating the cache
+The app keeps query answers in a cache for immediate display.
+
+The URL `domain:port/populateCache` adds any example entries not already in the cache to the cache.
+
+The URL `domain:port/cache/n` adds the nth example entry to the cache, overwriting the previous entry is there was one.
+
 ## Updating dependencies
 
 When adding new dependencies add them to `devel-requirements.txt` and run `make deps`.
@@ -39,4 +47,5 @@ updated the `requirements.txt` file used when deploying the application
   - Start the app with `make start-local`
 - If running elsewhere start the app with `make start` and supply the required environment variables
 
-The app automatically restarts with any code changes. If new menu items were added, then go to `domain:port/populateCache` to add the new queries to the cache.
+The app automatically restarts with any code changes.
+

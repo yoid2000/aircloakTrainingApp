@@ -607,9 +607,7 @@ def readFromCache(s,user):
     for sys in ['native','cloak']:
         s[sys]['cached'] = False
         sql = s[sys]['sql']
-        sql = sql.replace('\n',' ')
-        sql = sql.replace('\r',' ')
-        key = hashlib.sha1(sql.encode('utf-8')).hexdigest()
+        key = makeKeyFromSql(sql)
         query = f'''SELECT ans, err, colInfo, rows, duration
                 FROM cache
                 WHERE query = '{key}' AND sys = '{sys}';'''
@@ -643,49 +641,79 @@ def setPrecision(ans):
         newAns.append(newRow)
     return newAns
 
+def makeKeyFromSql(sql):
+    sql = sql.replace('\n',' ')
+    sql = sql.replace('\r',' ')
+    return hashlib.sha1(sql.encode('utf-8')).hexdigest()
+
+def entryIsInCache(sys,key):
+    (conn,c) = validateAndGetCursor()
+    check = f'''SELECT count(*) FROM cache
+            WHERE query = '{key}' AND
+                  sys = '{sys}'; '''
+    c.execute(check)
+    ans = c.fetchall()
+    if ans[0][0] == 1:
+        # already in cache
+        return True
+    return False
+
+def deleteCacheEntry(ex,sys):
+    if len(ex[sys]['sql']) == 0:
+        return
+    sql = ex[sys]['sql']
+    key = makeKeyFromSql(sql)
+    if entryIsInCache(sys,key):
+        return
+    (conn,c) = validateAndGetCursor()
+    check = f'''DELETE FROM cache
+            WHERE query = '{key}' AND
+                  sys = '{sys}'; '''
+    c.execute(check)
+    conn.commit()
+    return
+
+def addExampleToCache(s,ex,sys):
+    (conn,c) = validateAndGetCursor()
+    html = ''
+    job = []
+    s['dbname'] = ex['dbname']
+    if len(ex[sys]['sql']) == 0:
+        return html
+    sql = ex[sys]['sql']
+    html += f'''Check sql {sql}<br>'''
+    key = makeKeyFromSql(sql)
+    if entryIsInCache(sys,key):
+        html += f'''   Already in cache<br>'''
+        return html
+    # Not in cache, so do lookup
+    job.append(gevent.spawn(doQuery,[sys,sql,s]))
+    gevent.wait(job)
+    newAns = setPrecision(s[sys]['ans'])
+    ansStr = simplejson.dumps(newAns)
+    colInfoStr = simplejson.dumps(s[sys]['colInfo'])
+    insert = f'''INSERT INTO cache VALUES (
+              '{key}',
+              '{sys}',
+              '{ansStr}',
+              '{s[sys]['err']}',
+              '{colInfoStr}',
+              {s[sys]['numRows']},
+              {s[sys]['duration']});
+            '''
+    c.execute(insert)
+    conn.commit()
+    html += '''   Committed<br>'''
+    return html
+
 def populateCache():
     # make a fake user from which to run the queries
     html = ''
     s = copy.deepcopy(initClientState)
     s['exampleList'] = getExampleList()
-    (conn,c) = validateAndGetCursor()
     for ex in s['exampleList']:
         for sys in ['native','cloak']:
-            job = []
-            s['dbname'] = ex['dbname']
-            if len(ex[sys]['sql']) > 0:
-                sql = ex[sys]['sql']
-                sql = sql.replace('\n',' ')
-                sql = sql.replace('\r',' ')
-                html += f'''Check sql {sql}<br>'''
-                key = hashlib.sha1(sql.encode('utf-8')).hexdigest()
-                check = f'''SELECT count(*) FROM cache
-                        WHERE query = '{key}' AND
-                              sys = '{sys}'; '''
-                c.execute(check)
-                ans = c.fetchall()
-                if ans[0][0] == 1:
-                    # already in cache
-                    html += f'''   Already in cache<br>'''
-                    continue
-                # Not in cache, so do lookup
-                job.append(gevent.spawn(doQuery,[sys,sql,s]))
-                gevent.wait(job)
-                newAns = setPrecision(s[sys]['ans'])
-                ansStr = simplejson.dumps(newAns)
-                colInfoStr = simplejson.dumps(s[sys]['colInfo'])
-                insert = f'''INSERT INTO cache VALUES (
-                          '{key}',
-                          '{sys}',
-                          '{ansStr}',
-                          '{s[sys]['err']}',
-                          '{colInfoStr}',
-                          {s[sys]['numRows']},
-                          {s[sys]['duration']});
-                        '''
-                c.execute(insert)
-                conn.commit()
-                html += '''   Committed<br>'''
+            html += addExampleToCache(s,ex,sys)
     return html
 
 def doQuery(params):
@@ -948,6 +976,19 @@ def doDemo():
         reloadExamples()
         redirect("/example/0")
     return(makeHtml())
+
+@route('/cache/<index>')
+def doCache(index):
+    index = int(index)
+    html = ''
+    s = copy.deepcopy(initClientState)
+    s['exampleList'] = getExampleList()
+    if index < 0 or index >= len(s['exampleList']):
+        return("Bad example number")
+    ex = s['exampleList'][index]
+    for sys in ['native','cloak']:
+        html += addExampleToCache(s,ex,sys)
+    return html
 
 @route('/example/<index>')
 def updateExample(index):

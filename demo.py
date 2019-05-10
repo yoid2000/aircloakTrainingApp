@@ -877,6 +877,8 @@ def loadUserState(user):
         return us[user]
     s = copy.deepcopy(initClientState)
     s['example'] = getUserExample(user)
+    if s['example'] is None:
+        s['example'] = 0
     us[user] = s
     return s
 
@@ -897,7 +899,7 @@ def getUserExample(user):
         return None
     ans = c.fetchall()
     if len(ans) == 0:
-        return 0
+        return None
     return ans[0][0]
 
 def putUserExample(user,example):

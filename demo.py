@@ -491,21 +491,17 @@ def makeExamplesHtml():
     user = getCookie()
     s = loadUserState(user)
     headerList = getHeaderList(s['exampleList'])
-    print(headerList)
     html = '''<dl>'''
     curHead = 0
     blue = s['example']
     for i in range(len(s['exampleList'])):
         if i == headerList[curHead+1]:
             curHead += 1
-        print(f"curHead {curHead}, val {headerList[curHead]}")
         ex = s['exampleList'][i]
-        print(blue, i, headerList[curHead], headerList[curHead+1])
         if (len(ex['cloak']['sql']) > 0 and
                 (blue < headerList[curHead] or
                     blue >= headerList[curHead+1])):
-            # This is not a header, and we don't want to print it
-            print("continue")
+            # This is not a header, and we don't want to list it
             continue
         end = ''
         if len(ex['cloak']['sql']) == 0:

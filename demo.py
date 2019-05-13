@@ -254,14 +254,14 @@ def makeHtml():
         width: {descParWd}cm;
     }}
     .par-right-queries {{
-        margin-left: -20px;
+        /*margin-left: -20px;*/
         float: left;
         height: {pRightQueriesHt}cm;
         width: {rightParWd}cm;
     }}
     .par-right-answers {{
         float: left;
-        margin-left: -20px;
+        /*margin-left: -20px;*/
         height: {pRightAnsHt}cm;
         width: {rightParWd}cm;
     }}
@@ -309,7 +309,6 @@ def makeHtml():
     .desc-box {{
         white-space: normal;
         font-size: 18px;
-        float: right;
         overflow:auto;
         flex-wrap:nowrap;
         height: {descHt}cm;
@@ -442,7 +441,7 @@ def makeHtml():
       </div>
       <div class="par-right">
         <div class="par-right-desc">
-          <div class="desc-box">{s['description']}</dev>
+          <div class="desc-box">{s['description']}</div>
         </div>
         <div class="par-right-queries">
             <br>
@@ -693,7 +692,7 @@ def deleteCacheEntry(ex,sys):
         return
     sql = ex[sys]['sql']
     key = makeKeyFromSql(sql)
-    if entryIsInCache(sys,key):
+    if not entryIsInCache(sys,key):
         return
     (conn,c) = validateAndGetCursor()
     check = f'''DELETE FROM cache
@@ -1019,6 +1018,7 @@ def doCache(index):
         return("Bad example number")
     ex = s['exampleList'][index]
     for sys in ['native','cloak']:
+        deleteCacheEntry(ex,sys)
         html += addExampleToCache(s,ex,sys)
     return html
 

@@ -104,7 +104,7 @@ WHERE table_name   = 'accounts' '''
     }
   },
   {
-    "heading": "Basic Queries",
+    "heading": "Basic queries",
     "description": '''<p class="desc">Listed here are a few of the most basic queries that can be executed with Aircloak.''',
     "dbname": "",
     "cloak": {
@@ -374,7 +374,7 @@ FROM (
     }
   },
   {
-    "heading": "Understanding noise",
+    "heading": "Noise",
     "description": '''
 <p class="desc">
 Aircloak adds noise to answers. The following set of examples illustrate how noise is added, how an analyst may guage how much noise is added, and potential pitfalls.
@@ -575,7 +575,7 @@ ORDER BY 1 DESC
     }
   },
   {
-    "heading": "Understanding suppression",
+    "heading": "Suppression",
     "description": '''
 <p class="desc">
 Aircloak suppresses answers that pertain to too few individuals. The following set of example illustrate this anonymization feature.
@@ -804,6 +804,121 @@ FROM accounts
 GROUP BY lastname
 HAVING count(DISTINCT client_id) = 2
 ORDER BY lastname DESC
+'''
+    }
+  },
+  {
+    "heading": "Low aggregates",
+    "description": '''
+<p class="desc">
+Aircloak avoids reporting aggregate results that would be unexpected or impossible without anonymization, for instance negative counts. By doing so, Aircloak not only makes its output more sensible for an analyst, but also avoids problems with business intelligence tools that would not know how to handle unexpected outputs.
+<p class="desc">
+Here we provide several examples.
+<p class="desc">
+<b>Bottom line: Avoid answers with very few distinct users</b>
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "True count = 1",
+    "description": '''
+<p class="desc">
+With suppression, the cloak never reports column values where only a single user contributes to the value. In the query below, however, the analyst is not asking for a column value, but only a count. Normal SQL would produce an answer even if no database entries match the condition and the count is zero.
+<p class="desc">
+Since it would therefore be unexpected not to produce a count, the cloak does so. When an answer would otherwise have been suppressed, the cloak always reports a count of zero, and count_noise of NULL. The latter is necessary to avoid revealing information about a single user.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*),
+       count(DISTINCT client_id) AS users,
+       count_noise(*)
+FROM transactions
+WHERE lastname = 'Adam'
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*),
+       count(DISTINCT client_id) AS users
+FROM transactions
+WHERE lastname = 'Adam'
+'''
+    }
+  },
+  {
+    "heading": "Noisy count < 2",
+    "description": '''
+<p class="desc">
+Since noise can be negative, it is possible to have a situation where the noise results in a negative count, which is unexpected. Furthermore, because of suppression, the cloak will never produce a answer that pertains to a single user. Therefore, a count of 1 or 0, though normally reasonable, is non-sensical in the context of Aircloak.
+<p class="desc">
+When the cloak reports a row with one or more column values, and the noisy count is one or less, the cloak automatically reports a value of 2. In addition, the cloak reports a count_noise of NULL. The NULL count_noise can serve as an indication that the count has been clipped.
+<p class="desc">
+This reporting rule can result in outputs that appear unusual at first glance. In the query below, we have intentionally selected names that have relatively few users in order to illustrate the reporting rule. The output appears unusual, because some lastnames are reported to have hundreds of transactions, while others are reported to have just two. Most of those reporting just two have been clipped. In these cases, the reported noise is NULL (None). This can serve as an indication that clipping has occured.
+<p class="desc">
+Note that in spite of the fact that the cloak query requests last names with only two distinct users each, most of the last names have three or four distinct users in reality. Analysts should avoid queries that have very few users per answer row.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT lastname,
+       count(*),
+       count_noise(*) AS noise
+FROM transactions
+GROUP BY lastname
+HAVING count(DISTINCT client_id) = 2
+ORDER BY lastname
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT lastname as name,
+       count(*),
+       count(DISTINCT client_id) AS users
+FROM transactions
+WHERE lastname in ('Wolfe', 'Welch', 'Watkins', 'Waters', 'Shaw', 'Robertson', 'Reyes', 'Quinn', 'Powers', 'Peters', 'Pena', 'Mills', 'Mendoza', 'Mcdonald', 'Lawson', 'Knight', 'Kelley', 'James', 'Howell', 'Harvey', 'Gonzales', 'Freeman', 'Castillo', 'Carroll', 'Carpenter', 'Boyd', 'Andrews')
+GROUP BY 1
+ORDER BY 1
+'''
+    }
+  },
+  {
+    "heading": "Noisy sum < 0",
+    "description": '''
+<p class="desc">
+When reporting a sum, if the associated noisy distinct user count is less than 2, the sum is reported as NULL (as is the sum_noise). This is the case whether or not the analyst requested the distinct user count, because the cloak automatically requests it.
+<p class="desc">
+Unlike count, a sum can be less than zero. Nevertheless, when the cloak encounters a sum where no negative values contributed to the sum, it caps the lowest value at zero. This rule is applied after the rule stated above.
+<p class="desc">
+These two rules are illustrated in this query. Here we see that some sums are reported as NULL, some are reported as zero, and some are reported as a positive value. 
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT lastname,
+       sum(amount),
+       sum_noise(amount)
+FROM transactions
+GROUP BY lastname
+HAVING count(DISTINCT client_id) = 2
+ORDER BY lastname
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT lastname as name,
+       sum(amount),
+       min(amount)
+FROM transactions
+WHERE lastname in ('Wolfe', 'Welch', 'Watkins', 'Waters', 'Shaw', 'Robertson', 'Reyes', 'Quinn', 'Powers', 'Peters', 'Pena', 'Mills', 'Mendoza', 'Mcdonald', 'Lawson', 'Knight', 'Kelley', 'James', 'Howell', 'Harvey', 'Gonzales', 'Freeman', 'Castillo', 'Carroll', 'Carpenter', 'Boyd', 'Andrews')
+GROUP BY 1
+ORDER BY 1
 '''
     }
   },

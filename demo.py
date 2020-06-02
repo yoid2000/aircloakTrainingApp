@@ -928,7 +928,7 @@ def getCookie():
     cookie = request.get_cookie("user_id")
     if cookie is None:
         ip = request.environ.get('REMOTE_ADDR')
-        cookie = hashlib.sha512(ip).hexdigest()
+        cookie = hashlib.sha512(ip.encode('utf-8')).hexdigest()
     return cookie
 
 def getEnvVars():
@@ -1001,6 +1001,12 @@ def doPop():
 
 @route('/training')
 def doDemo():
+    # It can happen that a user starts with the '/training' URL because it was
+    # cut-and-pasted from another user. So we want to check if there is a cookie
+    # already and if not send the user to the consent page
+    cookie = request.get_cookie("user_id")
+    if cookie is None:
+        redirect("/")
     user = getCookie()
     s = loadUserState(user)
     if len(s['exampleHtml']) == 0:

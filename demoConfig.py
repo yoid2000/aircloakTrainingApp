@@ -62,7 +62,12 @@ Aircloak accepts the MySQL "SHOW tables" command.
 <p class="desc">
 Note that Aircloak indicates whether a table is
 <a target=_blank href="https://demo.aircloak.com/docs/ops/configuration.html#insights-cloak-configuration">
-personal or non-personal</a>. Non-personal tables are not anonymized.''',
+personal or non-personal</a>. Non-personal tables are not anonymized.
+<p class="desc">
+The table <span style="font-family:'Courier New'">cli_names</span> does nothing more than associate the integer value in column
+<span style="font-family:'Courier New'">cli_district_id</span>
+with the name of the city for that district. It contains no user information and so is marked non-personal.
+''',
     
     "dbname": "banking",
     "cloak": {
@@ -85,9 +90,23 @@ Aircloak accepts the MySQL "SHOW columns FROM table" command.
 <p class="desc">
 In addition to the column name and type, Aircloak displays two additional attributes. The analyst needs to be aware of these attributes when writing certain queries.
 <p class="desc">
-The <b>key type</b> attributes indicates which column identifies the protected entity in the database (the entity whose anonynimity is being protected). We refer to this entity as the "user".
+The <b>key type</b> attribute has two roles. First, it indicates which column identifies the protected entity in the database (the entity whose anonynimity is being protected). This column has key type
+<span style="font-family:'Courier New'">user_id</span>.
+Second, it indicates which columns can be used in the 
+<span style="font-family:'Courier New'">ON</span>
+clause of a
+<span style="font-family:'Courier New'">JOIN</span>
+statement. Only columns with the same key type may be used for joining. For instance the
+<span style="font-family:'Courier New'">cli_district_id</span>
+column may only be joined with other tables that have a
+<span style="font-family:'Courier New'">cli_district_id</span>
+key type.
+Read more 
+<a target=_blank href="https://demo.aircloak.com/docs/sql/restrictions.html#join-restrictions">here</a>
+and <a target=_blank href="https://demo.aircloak.com/docs/ops/configuration.html#insights-cloak-configuration">here</a>.
 <p class="desc">
-The <b>isolator?</b> attribute indicates that a column has a large proportion of values that are distinct to individual users. Additional SQL limitations are placed on isolator columns. Read more 
+The <b>isolator?</b> attribute indicates that a column has a large proportion of values that are distinct to individual users. Additional SQL limitations are placed on isolator columns.
+Read more 
 <a target=_blank href="https://demo.aircloak.com/docs/sql/restrictions.html#isolating-columns">here</a>.
 <p class="desc">
 ''',
@@ -150,7 +169,7 @@ FROM jan08'''
 <p class="desc">
 Count the number of different countries from which SciHub downloads took place.
 <p class="desc">
-<font color="red"> Note that this query takes a few tens of seconds </font>
+<font color="red"> Note that this query takes ten seconds or so</font>
 ''',
     "dbname": "scihub",
     "cloak": {
@@ -264,7 +283,8 @@ ORDER BY 1'''
     "dbname": "banking",
     "cloak": {
       "sql": '''
-SELECT cli_district_id AS cli,
+SELECT t3.cli_district_id AS cli,
+       t3.city_name AS city,
        count(DISTINCT t1.client_id)
 FROM (
     SELECT client_id, cli_district_id
@@ -276,13 +296,18 @@ JOIN (
     HAVING avg(balance)
            BETWEEN 0 AND 50000) t2
 ON t1.client_id = t2.client_id
-GROUP BY 1
-ORDER BY 2 DESC
+JOIN (
+    SELECT cli_district_id, city_name
+    FROM cli_names) t3
+ON t1.cli_district_id = t3.cli_district_id
+GROUP BY 1,2
+ORDER BY 3 DESC
 '''
     },
     "native": {
       "sql": '''
-SELECT cli_district_id AS cli,
+SELECT t3.cli_district_id AS cli,
+       t3.city_name AS city,
        count(DISTINCT t1.client_id)
 FROM (
     SELECT client_id, cli_district_id
@@ -294,8 +319,12 @@ JOIN (
     HAVING avg(balance)
            BETWEEN 0 AND 50000) t2
 ON t1.client_id = t2.client_id
-GROUP BY 1
-ORDER BY 2 DESC
+JOIN (
+    SELECT cli_district_id, city_name
+    FROM cli_names) t3
+ON t1.cli_district_id = t3.cli_district_id
+GROUP BY 1,2
+ORDER BY 3 DESC
 '''
     }
   },
@@ -314,16 +343,19 @@ SELECT * FROM table LIMIT X
     }
   },
   {
+    "skip": False,
     "heading": "SELECT * ... LIMIT X",
     "description": '''
 <p class="desc">
-One of the first things an analyst may do when presented with a new database is "SELECT * ... LIMIT X". This gives the analyst an immediate impression of what data he or she is dealing with.
+One of the first things an analyst may do when presented with a new database is:
 <p class="desc">
-With Aircloak this query neither gives an impression nor is immediate. Instead, it may take a very long time to tell the analyst nothing. In this query on the scihub dataset, the cloak aborted the query after roughly two minutes.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<span style="font-family:'Courier New'">SELECT * ... LIMIT X</span>
 <p class="desc">
-It doesn't give an impression because Aircloak suppresses data that pertains to too few individuals. Rather, analysts need to formulate queries that naturally result in aggregate values with at least several users.
+This gives the analyst an immediate impression of what data he or she is dealing with.
 <p class="desc">
-It is not immediate because Aircloak applies LIMIT only after retrieving the data from the database. for "SELECT *", this means all rows!
+Aircloak cannot return any useful information with this query, because it filters out any information related to one or a few users. Rather than attempt to run the query (which would take a very long time), Aircloak recognizes that the answer would contain nothing and returns an error message to that effect.
+<p class="desc">
 ''',
     "dbname": "scihub",
     "cloak": {
@@ -339,37 +371,6 @@ LIMIT 10
 SELECT *
 FROM sep2015
 LIMIT 10
-'''
-    }
-  },
-  {
-    "heading": "Another way",
-    "description": '''
-<p class="desc">
-By putting the LIMIT clause in a sub-query, the database does the limiting rather than the cloak. As a result much less data is transferred from the database to the cloak, and the query executes quickly.
-<p class="desc">
-However, the resulting data is still not useful because the cloak suppresses the values pertaining to too few individuals.
-<p class="desc">
-Note by the way that Aircloak requires an ORDER BY clause along with the LIMIT clause.
-''',
-    "dbname": "scihub",
-    "cloak": {
-      "sql": '''
-SELECT *
-FROM (
-    SELECT *
-    FROM sep2015
-    ORDER BY uid
-    LIMIT 10 ) t
-'''
-    },
-    "native": {
-      "sql": '''
-SELECT *
-FROM (
-    SELECT *
-    FROM sep2015
-    LIMIT 10 ) t
 '''
     }
   },
@@ -405,7 +406,7 @@ They correspond to the functions 'count()', 'sum()', 'avg()', 'stddev()', and 'v
 <p class="desc">
 Aircloak adds random noise according to a Gaussian distribution ("bell curve"). The 'aggr_noise()' value is the standard deviation of the Gaussian sample.
 <p class="desc">
-From the query below, we see that a noise value with a standard deviation of 1.0 was added to the answer. In this particular case, it was not enough to modify the resulting count, but an analyst wouldn't normally know that.
+From the query below, we see that a noise value with a standard deviation of 1.0 was added to the answer.
 <p class="desc">
 ''',
     "dbname": "banking",
@@ -430,7 +431,7 @@ FROM accounts
 Aircloak has a unique way of adding noise which we call "sticky layered noise".  Sticky means that the same query produces the same noise. Try re-running the query, and you will see that you get the same noisy answer every time.
 <p class="desc">
 Layered means that there are multiple noise values, one or two per condition.
-The query here is the same as the previous, with the exception that one condition has been added (Aircloak treats a pair of inequalities as one condition). The amount of noise has increased from standard deviation 1.0 to sqrt(2), which Aircloak rounds to 1.4.
+The query here is the same as the previous, with the exception that one condition has been added. The amount of noise has increased from standard deviation 1.0 to sqrt(2), which Aircloak rounds to 1.4.
 ''',
     "dbname": "banking",
     "cloak": {
@@ -438,16 +439,14 @@ The query here is the same as the previous, with the exception that one conditio
 SELECT count(DISTINCT client_id),
        count_noise(DISTINCT client_id)
 FROM accounts
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50
+WHERE cli_district_id = 1
 '''
     },
     "native": {
       "sql": '''
 SELECT count(DISTINCT client_id)
 FROM accounts
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50
+WHERE cli_district_id = 1
 '''
     }
   },
@@ -463,8 +462,7 @@ Now with two conditions, the noise increases to standard deviation of 2.0.
 SELECT count(DISTINCT client_id),
        count_noise(DISTINCT client_id)
 FROM accounts
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50 AND
+WHERE cli_district_id = 1 AND
       frequency = 'POPLATEK MESICNE'
 '''
     },
@@ -472,8 +470,7 @@ WHERE cli_district_id >= 0 AND
       "sql": '''
 SELECT count(DISTINCT client_id)
 FROM accounts
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50 AND
+WHERE cli_district_id = 1 AND
       frequency = 'POPLATEK MESICNE'
 '''
     }
@@ -484,7 +481,7 @@ WHERE cli_district_id >= 0 AND
 <p class="desc">
 Aircloak adds enough noise to hide the influence of individual users. Often some users contribute more to the answer than other users. This wasn't the case in the previous three queries because we were counting distinct users, so every user contributed exactly one, and the amount of noise was enough to hide each user.
 <p class="desc">
-In this query, however, we are taking the sum total of the amount of all banking transactions, and users with more transactions at higher amounts contribute more to the answer. As a result, the amount of noise is enough to hide the heavy contributors. In this case, the standard deviation of the noise is around 5.4 million! Correspondingly, the absolute error is around 8 million. However, the relative error is still small (less than one tenth of a percent)!
+In this query, however, we are taking the sum total of the amount of all banking transactions, and users with more transactions at higher amounts contribute more to the answer. As a result, the amount of noise is enough to hide the heavy contributors. In this case, the standard deviation of the noise is in the millions! Correspondingly, the absolute error is similarly high. However, the relative error is still very small!
 <p class="desc">
 This better illustrates the need for the aggr_noise() functions, as it is otherwise troublesome for the analyst to have to figure out roughly how much the heavy hitting users contribute.
 ''',
@@ -494,8 +491,7 @@ This better illustrates the need for the aggr_noise() functions, as it is otherw
 SELECT sum(amount),
        sum_noise(amount)
 FROM transactions
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50 AND
+WHERE cli_district_id = 1 AND
       frequency = 'POPLATEK MESICNE'
 '''
     },
@@ -503,8 +499,7 @@ WHERE cli_district_id >= 0 AND
       "sql": '''
 SELECT sum(amount)
 FROM transactions
-WHERE cli_district_id >= 0 AND
-      cli_district_id < 50 AND
+WHERE cli_district_id = 1 AND
       frequency = 'POPLATEK MESICNE'
 '''
     }
@@ -517,9 +512,10 @@ It may have occurred to you that one could determine roughly what the extreme va
 <p class="desc">
 This is not, however, the case. Before determining how much noise to add, Aircloak "flattens" the highest and lowest values so that they are similar in magnitude to at least a few other high and low values.
 <p class="desc">
-The query below is a good example of this. The noise has a standard deviation of 1250, and yet the absolute error is over 30K. Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. This can be seen in the next example.
+The query below is a good example of this. The absolute error is many times greater than the noise standard deviation.
+Clearly there is more distortion here than can be accounted for by the random noise alone. The extra distortion is due to the fact that there is an extreme value in the answer: one user with an unusually high number of downloads (rows) compared to the other users. Aircloak lowers the answer roughly proportionally to the contribution of the extreme value. The next example gives more detail.
 <p class="desc">
-Note also that the relative error, nearly 15%, is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
+Note also that the relative error is higher than in previous examples. The reason for this is that there are not many distinct users comprising this answer, so the noise is relatively higher.
 ''',
     "dbname": "scihub",
     "cloak": {
@@ -544,7 +540,7 @@ WHERE country = 'United States'
 <p class="desc">
 This query counts the number of users that had each number of downloads, and then displays them in descending order of number of downloads. Note that this would not necessarily be the best way to query the cloak for this data, but we do it here primarily to show that a single user has an extreme number of downloads, nearly double that of the next user.
 <p class="desc">
-This query also illustrates why the relative error of the previous query is high (15%): the extreme value itself accounts for 16% of the total downloads in this case. Aircloak necessarily hides this user (as would any anonymization mechanism), and so a high error is unavoidable.
+This query also illustrates why the relative error of the previous query is high: the extreme value itself accounts for 16% of the total downloads in this case. Aircloak necessarily hides this user (as would any anonymization mechanism), and so a high error is unavoidable.
 ''',
     "dbname": "scihub",
     "cloak": {
@@ -596,11 +592,17 @@ This example queries for the number of users with each last name and displays th
 <p class="desc">
 Simply adding noise to an answer is not enough to preserve anonymity. If there is only one user in the database with a given last name, then merely displaying this last name would break anonymity.
 <p class="desc">
-The native answer here shows that there are 3895 distinct last names (rows) in the database. Aircloak, however, only reveals 158 of these names: those that are shared by multiple users. The remaining names are hidden.
+The native answer here shows that there are 3895 distinct last names (rows) in the database. Aircloak, however, only reveals only a fraction of these names: those that are shared by multiple users. The remaining names are hidden.
 <p class="desc">
-To inform the analyst that last names have been suppressed, and to give an indication of how much data has been suppressed, Aircloak places all of the suppressed rows in a bucket labeled '*', and then displays the anonymized aggregate for that bucket.
+To inform the analyst that last names have been suppressed, and to give an indication of how much data has been suppressed, Aircloak places all of the suppressed rows in a bucket labeled
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+and then displays the anonymized aggregate for that bucket.
 <p class="desc">
-For this query, essentially what happens is that all suppressed last names are replaced with the value '*', and then displayed as though '*' is a last name. From this we see that there are around 4123 users whose last names have been suppressed.
+For this query, essentially what happens is that all suppressed last names are replaced with the value
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+and then displayed as though
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+is a last name. From this we see that there are over 4100 users whose last names have been suppressed.
 ''',
     "dbname": "banking",
     "cloak": {
@@ -628,9 +630,23 @@ ORDER BY 2 DESC
 <p class="desc">
 This is a similar kind of query, but this time displaying numbers instead of text.
 <p class="desc">
-In this case, rather than return '*' as the default symbol for identifying the suppression bucket, Aircloak returns 'NULL' (which here is displayed as 'None' because of the python implementation). Aircloak can't return '*' for numbers because '*' is a string and therefore the wrong type.
+In this case, rather than return
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+as the default symbol for identifying the suppression bucket, Aircloak returns
+&nbsp<span style="font-family:'Courier New'">NULL</span>&nbsp
+(which here is displayed as 'None' because of the python implementation). Aircloak can't return
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+for numbers because
+&nbsp<span style="font-family:'Courier New'">*</span>&nbsp
+is a string and therefore the wrong type.
 <p class="desc">
-Returning 'NULL' as the suppression bucket label has the problem that database values that are really NULL, and therefore may not be suppressed, would be mixed with suppressed (non-NULL) values. To avoid this confusion, the analyst can add a 'WHERE ... IS NOT NULL' condition.
+Returning
+&nbsp<span style="font-family:'Courier New'">NULL</span>&nbsp
+as the suppression bucket label has the problem that database values that are really
+&nbsp<span style="font-family:'Courier New'">NULL</span>&nbsp
+and therefore may not be suppressed, would be mixed with suppressed (non-NULL) values. To avoid this confusion, the analyst can add a
+&nbsp<span style="font-family:'Courier New'">WHERE ... IS NOT NULL</span>&nbsp
+condition.
 ''',
     "dbname": "taxi",
     "cloak": {
@@ -659,7 +675,7 @@ ORDER BY 2 DESC
 <p class="desc">
 In cases where there is substantial suppression, the analyst may use the 'bucket()' function to avoid rows with too few users.
 <p class="desc">
-In the example below, the cloak output shows a suppression bucket (10th row labeled 'None'), but there are relatively few rows in this bucket (1152).
+In the example below, the cloak output does show a suppression bucket (10th row labeled 'None'), but there are relatively few rows in this bucket.
 <p class="desc">
 Note that normally one would more likely order this output by pickup_latitude, but we order by count so as to illustrate the reduced suppression.
 ''',
@@ -691,7 +707,9 @@ ORDER BY 2 DESC
 <p class="desc">
 This query builds a 2-column histogram of number of rides from the number of riders and trip distance.
 <p class="desc">
-Aircloak attempts to display as much information as it can before suppressing. The first row from the cloak shows that there is very little suppression where both column values are hidden. The next six rows also have suppression, but only of the distance information. Aircloak shows the amount of suppression for each of six rider counts.
+Aircloak attempts to display as much information as it can before suppressing.
+Rather than suppress the values for both columns, it shows the value of the first (riders) column, and suppresses only the values of the second (distance) column.
+This can be seen in the first six displayed rows.
 ''',
     "dbname": "taxi",
     "cloak": {
@@ -700,7 +718,7 @@ SELECT passenger_count AS riders,
        trip_distance AS distance,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 '''
     },
     "native": {
@@ -709,7 +727,7 @@ SELECT passenger_count AS riders,
        trip_distance AS distance,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 '''
     }
   },
@@ -729,7 +747,7 @@ SELECT trip_distance AS distance,
        passenger_count AS riders,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 '''
     },
     "native": {
@@ -738,7 +756,7 @@ SELECT trip_distance AS distance,
        passenger_count AS riders,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 '''
     }
   },
@@ -748,7 +766,7 @@ GROUP by 1,2
 <p class="desc">
 Suppression can be reduced by placing values in buckets. In this case, we use the round function to place distance into buckets of one mile.
 <p class="desc">
-Though not displayed here, there is still a small amount of suppression (the native database outputs 232 rows against the cloaks 172). Most of the information, however, is preserved by the cloak.
+Though not displayed here, there is still a small amount of suppression (the native database outputs roughly 60 more rows than the cloak). Most of the information, however, is preserved by the cloak.
 <p class="desc">
 (Note that the cloak automatically casts the output of the 'round()' function as an integer. To align the output of the native and cloak queries here, we explicitly cast the native distance column as 'int'.)
 ''',
@@ -759,7 +777,7 @@ SELECT round(trip_distance) AS distance,
        passenger_count AS riders,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 ORDER BY 1,2
 '''
     },
@@ -770,7 +788,7 @@ SELECT round(trip_distance)::int
        passenger_count AS riders,
        count(*) AS rides
 FROM jan08
-GROUP by 1,2
+GROUP BY 1,2
 ORDER BY 1,2
 '''
     }
@@ -783,9 +801,16 @@ The threshold for the number of distinct users at which Aircloak decides whether
 <p class="desc">
 Put another way, any row reported by Aircloak has at least two distinct users, but a row with two distinct users may well not be reported.
 <p class="desc">
-This query illustrates the noisy threshold. The native answer lists the first 100 of the 197 last names for which exactly two users have the last name. The cloak answer has 31 names, but only one of them actually has two distinct users ('Love').
+This query illustrates the noisy threshold. The native answer lists the first 100 of the 197 last names for which exactly two users have the last name. The cloak answer not only displays far fewer names, but in fact very few if any of the names in fact have two distinct users.
 <p class="desc">
-The reason for this is as follows. For each last name, Aircloak adds noise to the true count of distinct users. Aircloak then selects those for which the noisy count is 2. Of these, Aircloak suppresses any where the true count is 1. Aircloak then computes the noisy threshold for the remaining lastnames, and suppresses those where the noisy threshold is greater than 2.
+The reason for this is that Aircloak adds noise <b>before</b> applying the
+<span style="font-family:'Courier New'">HAVING</span>
+filter.
+As a result, most of the names that pass the
+<span style="font-family:'Courier New'">HAVING</span>
+filter don't have two users, and most of the names with two users don't pass the
+<span style="font-family:'Courier New'">HAVING</span>
+filter.
 ''',
     "dbname": "banking",
     "cloak": {
@@ -813,7 +838,7 @@ ORDER BY lastname DESC
 <p class="desc">
 Aircloak avoids reporting aggregate results that would be unexpected or impossible without anonymization, for instance negative counts. By doing so, Aircloak not only makes its output more sensible for an analyst, but also avoids problems with business intelligence tools that would not know how to handle unexpected outputs.
 <p class="desc">
-Here we provide several examples.
+Here we provide a couple examples.
 <p class="desc">
 <b>Bottom line: Avoid answers with very few distinct users</b>
 ''',
@@ -882,41 +907,7 @@ SELECT lastname as name,
        count(*),
        count(DISTINCT client_id) AS users
 FROM transactions
-WHERE lastname in ('Wolfe', 'Welch', 'Watkins', 'Waters', 'Shaw', 'Robertson', 'Reyes', 'Quinn', 'Powers', 'Peters', 'Pena', 'Mills', 'Mendoza', 'Mcdonald', 'Lawson', 'Knight', 'Kelley', 'James', 'Howell', 'Harvey', 'Gonzales', 'Freeman', 'Castillo', 'Carroll', 'Carpenter', 'Boyd', 'Andrews')
-GROUP BY 1
-ORDER BY 1
-'''
-    }
-  },
-  {
-    "heading": "Noisy sum < 0",
-    "description": '''
-<p class="desc">
-When reporting a sum, if the associated noisy distinct user count is less than 2, the sum is reported as NULL (as is the sum_noise). This is the case whether or not the analyst requested the distinct user count, because the cloak automatically requests it.
-<p class="desc">
-Unlike count, a sum can be less than zero. Nevertheless, when the cloak encounters a sum where no negative values contributed to the sum, it caps the lowest value at zero. This rule is applied after the rule stated above.
-<p class="desc">
-These two rules are illustrated in this query. Here we see that some sums are reported as NULL, some are reported as zero, and some are reported as a positive value. 
-''',
-    "dbname": "banking",
-    "cloak": {
-      "sql": '''
-SELECT lastname,
-       sum(amount),
-       sum_noise(amount)
-FROM transactions
-GROUP BY lastname
-HAVING count(DISTINCT client_id) = 2
-ORDER BY lastname
-'''
-    },
-    "native": {
-      "sql": '''
-SELECT lastname as name,
-       sum(amount),
-       min(amount)
-FROM transactions
-WHERE lastname in ('Wolfe', 'Welch', 'Watkins', 'Waters', 'Shaw', 'Robertson', 'Reyes', 'Quinn', 'Powers', 'Peters', 'Pena', 'Mills', 'Mendoza', 'Mcdonald', 'Lawson', 'Knight', 'Kelley', 'James', 'Howell', 'Harvey', 'Gonzales', 'Freeman', 'Castillo', 'Carroll', 'Carpenter', 'Boyd', 'Andrews')
+WHERE lastname in ('Aguilar', 'Andrews', 'Armstrong', 'Austin', 'Bishop', 'Boyd', 'Burke', 'Carlson', 'Doyle', 'Duncan', 'Duran', 'Elliott', 'Ellis', 'Guzman', 'Hayes', 'Holland', 'Howell', 'Jenkins', 'Jimenez', 'Kelley', 'Kennedy', 'Matthews', 'Mendez', 'Morales', 'Munoz', 'Obrien', 'Olson', 'Schultz', 'Vasquez', 'Wells')
 GROUP BY 1
 ORDER BY 1
 '''

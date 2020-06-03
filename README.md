@@ -33,6 +33,10 @@ The URL `domain:port/populateCache` adds any example entries not already in the 
 
 The URL `domain:port/cache/n` adds the nth example entry to the cache, overwriting the previous entry is there was one.
 
+The script `showExampleNumbers.py` prints out the index value `n` for each example that contains SQL. This aids in knowing the value of `n` for the `domain:port/cache/n` URL.
+
+The script `updateScript.py` calls `domain:port/cache/n` for every value of `n`. This can be used to modify all values. Note that `updateScript.py` will simply pass by any queries that produced an error. In other words, it is not reliable.
+
 ## Updating dependencies
 
 When adding new dependencies add them to `devel-requirements.txt` and run `make deps`.

@@ -2,7 +2,8 @@ import requests
 from demoConfig import getExampleList
 
 # Modify following with the domain that you want to use
-urlBase = 'http://localhost:8070/'
+#urlBase = 'http://localhost:8070/'
+urlBase = 'https://training.aircloak.net:8070/'
 urlTraining = urlBase + 'training'
 urlCache = urlBase + 'cache/'
 

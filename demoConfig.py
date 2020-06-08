@@ -914,6 +914,259 @@ ORDER BY 1
     }
   },
   {
+    "heading": "Inequalities",
+    "description": '''
+<p class="desc">
+Besides distorting answers with noise and suppression, Aircloak places a number of limitations on the SQL itself in order to prevent a variety of attacks.
+<p class="desc">
+One class of limitations are those placed on inequalities in conditions.
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "Ranges",
+    "description": '''
+<p class="desc">
+Most inequalities must be bounded on both sides: both the lower and upper bounds must be specified.
+<p class="desc">
+The following query is disallowed by Aircloak because a lower bound is not specified.
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql/restrictions.html#constant-ranges
+">here</a>.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id < 10
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id < 10
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspCorrect approach",
+    "description": '''
+<p class="desc">
+If the analyst happens to know that there are no values of
+<span style="font-family:'Courier New'">cli_district_id</span>
+lower than 0, then by setting a lower bound of 0, the query
+works.
+<p class="desc">
+Ranges in Aircloak must be '>=' on the lower bound and '<' on the
+upper bound. Because of this, Aircloak changes the operation of
+<span style="font-family:'Courier New'">BETWEEN</span>
+to follow this convention. As a result, to ask for a range between
+0 and 9 inclusive, Aircloak requires the condition
+<span style="font-family:'Courier New'">BETWEEN 0 and 10</span>.
+<p class="desc">
+The likely minimum value of
+<span style="font-family:'Courier New'">cli_district_id</span>
+could be determined within Aircloak using a query like this:
+<p class="desc">
+&nbsp&nbsp&nbsp&nbsp&nbsp<span style="font-family:'Courier New'">
+SELECT min(cli_district_id) FROM accounts
+</span>
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 0 AND 10
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 0 AND 9
+'''
+    }
+  },
+  {
+    "heading": "Alignment",
+    "description": '''
+<p class="desc">
+What if you want to know the number of rows of users with
+<span style="font-family:'Courier New'">cli_district_id</span>
+between 0 and 10 inclusive?
+The query shown here would be the natural thing to do.
+The cloak answer, however, has a huge error.
+<p class="desc">
+The problem here is that Aircloak requires that all ranges
+fall into a preconfigured set of sizes and offsets. The sizes
+follow the pattern ..., 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, ...
+The query here doesn't fall into this alignment, and so the cloak
+automatically modifies the query so that it does. The Aircloak
+Insights web client provides a notice to this effect so that the
+analyst realizes what happened. This training app happens not to
+show the notice.
+<p class="desc">
+What happened here is that the cloak modified the range to be
+<span style="font-family:'Courier New'">BETWEEN 0 and 20</span>.
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql/restrictions.html#constant-range-alignment
+">here</a>.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 0 and 11
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 0 and 10
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspCorrect query 1",
+    "description": '''
+<p class="desc">
+To get the count of rows with 
+<span style="font-family:'Courier New'">cli_district_id</span>
+between 0 and 10 inclusive, the analyst must make two queries, one
+aligned 0 to 9, and one selecting the value 10, and then sum
+the two answers.
+<p class="desc">
+Here is the first of the two queries.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 0 AND 10
+'''
+    },
+    "native": {
+      "sql": '''
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspCorrect query 2",
+    "description": '''
+<p class="desc">
+And here is the second query.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id = 10
+'''
+    },
+    "native": {
+      "sql": '''
+'''
+    }
+  },
+  {
+    "heading": "Shifted alignment",
+    "description": '''
+<p class="desc">
+The allowed offsets for range alignment can fall on the aligned values
+themselves (0, 1, 2, 5, etc.), or can be shifted by one half the range
+size. For example, a range of size 10 can be aligned at ... -10, 0, 10, 20, ..., or can be aligned shifted by 5, at ... -15, -5, 5, 15, ....
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 25 and 35
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM accounts
+WHERE cli_district_id BETWEEN 25 and 34
+'''
+    }
+  },
+  {
+    "heading": "Datetime alignment",
+    "description": '''
+<p class="desc">
+Date, time, and datetime types are aligned to the natural datetime boundaries (minute, hour, day, etc.), as well as some finer-grained boundaries, for instance 1, 2, 6, 12, and 24 hours
+(read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql/restrictions.html#constant-range-alignment
+">here</a>).
+<p class="desc">
+The query here is not aligned because of the minutes offset into the hour.
+The automatic alignment for the query here produces a different time range.
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM jan08
+WHERE pickup_datetime BETWEEN
+    '2013-01-08 09:07:00' AND
+    '2013-01-08 10:07:00'
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM jan08
+WHERE pickup_datetime BETWEEN
+    '2013-01-08 09:07:00' AND
+    '2013-01-08 10:06:59'
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspCorrect alignment",
+    "description": '''
+<p class="desc">
+This query is correctly aligned (on the hour).
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SELECT count(*)
+FROM jan08
+WHERE pickup_datetime BETWEEN
+    '2013-01-08 09:00:00' AND
+    '2013-01-08 10:00:00'
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT count(*)
+FROM jan08
+WHERE pickup_datetime BETWEEN
+    '2013-01-08 09:00:00' AND
+    '2013-01-08 09:59:59'
+'''
+    }
+  },
+  {
     "heading": "Visit again!",
     "description": '''
 <p class="desc">

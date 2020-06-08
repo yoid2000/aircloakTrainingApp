@@ -721,15 +721,20 @@ def addExampleToCache(s,ex,sys):
     newAns = setPrecision(s[sys]['ans'])
     ansStr = simplejson.dumps(newAns)
     colInfoStr = simplejson.dumps(s[sys]['colInfo'])
+    if s[sys]['err']:
+        errMsg = s[sys]['err'].replace("'","''")
+    else:
+        errMsg = s[sys]['err']
     insert = f'''INSERT INTO cache VALUES (
               '{key}',
               '{sys}',
               '{ansStr}',
-              '{s[sys]['err']}',
+              '{errMsg}',
               '{colInfoStr}',
               {s[sys]['numRows']},
               {s[sys]['duration']});
             '''
+    print(insert)
     c.execute(insert)
     conn.commit()
     html += '''   Committed<br>'''

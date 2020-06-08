@@ -619,6 +619,8 @@ def makeAnswerHtml(sys):
             pass
         html += '''</tr>'''
     html += '''</table>'''
+    for notice in s[sys]['notices']:
+        html += f'''<hr><font color="red">{notice}</font>'''
     s[sys]['ansHtml'] = html
     return
 
@@ -817,6 +819,13 @@ def doQuery(params):
     #pp.pprint(s[sys]['ans'])
     #pp.pprint(s[sys]['colInfo'])
     end = time.perf_counter()
+    s[sys]['notices'] = []
+    if len(s[sys]['conn'].notices):
+        # There are notices
+        for notice in s[sys]['conn'].notices:
+            if '[Debug]' in notice:
+                continue
+            s[sys]['notices'].append(notice)
     s[sys]['ans'] = setPrecision(s[sys]['ans'])
     s[sys]['duration'] = round(end - start,3)
     s[sys]['conn'].close()

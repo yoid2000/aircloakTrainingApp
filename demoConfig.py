@@ -344,6 +344,7 @@ SELECT * FROM table LIMIT X
   },
   {
     "skip": False,
+    "expectErr": True,
     "heading": "SELECT * ... LIMIT X",
     "description": '''
 <p class="desc">
@@ -931,6 +932,7 @@ One class of limitations are those placed on inequalities in conditions.
   },
   {
     "heading": "Ranges",
+    "expectErr": True,
     "description": '''
 <p class="desc">
 Most inequalities must be bounded on both sides: both the lower and upper bounds must be specified.
@@ -1011,12 +1013,11 @@ The problem here is that Aircloak requires that all ranges
 fall into a preconfigured set of sizes and offsets. The sizes
 follow the pattern ..., 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, ...
 The query here doesn't fall into this alignment, and so the cloak
-automatically modifies the query so that it does. The Aircloak
-Insights web client provides a notice to this effect so that the
-analyst realizes what happened. This training app happens not to
-show the notice.
+automatically modifies the query so that it does.
+Aircloak provides a notice over the API to this effect so that the
+analyst may know what has happened.
 <p class="desc">
-What happened here is that the cloak modified the range to be
+From the notice, we see that the cloak modified the range to be
 <span style="font-family:'Courier New'">BETWEEN 0 and 20</span>.
 Read more 
 <a target=_blank href="
@@ -1028,14 +1029,14 @@ https://demo.aircloak.com/docs/sql/restrictions.html#constant-range-alignment
       "sql": '''
 SELECT count(*)
 FROM accounts
-WHERE cli_district_id BETWEEN 0 and 11
+WHERE cli_district_id BETWEEN 0 AND 11
 '''
     },
     "native": {
       "sql": '''
 SELECT count(*)
 FROM accounts
-WHERE cli_district_id BETWEEN 0 and 10
+WHERE cli_district_id BETWEEN 0 AND 10
 '''
     }
   },
@@ -1096,14 +1097,14 @@ size. For example, a range of size 10 can be aligned at ... -10, 0, 10, 20, ...,
       "sql": '''
 SELECT count(*)
 FROM accounts
-WHERE cli_district_id BETWEEN 25 and 35
+WHERE cli_district_id BETWEEN 25 AND 35
 '''
     },
     "native": {
       "sql": '''
 SELECT count(*)
 FROM accounts
-WHERE cli_district_id BETWEEN 25 and 34
+WHERE cli_district_id BETWEEN 25 AND 34
 '''
     }
   },

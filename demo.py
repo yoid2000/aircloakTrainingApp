@@ -84,6 +84,7 @@ initClientState = {
         'runSql' : '',
         'ans' : [],
         'err' : None,
+        'notices' : '',
         'ansHtml' : '',
         'cached' : False,
         'colInfo' : None,
@@ -96,6 +97,7 @@ initClientState = {
         'runSql' : '',
         'ans' : [],
         'err' : None,
+        'notices' : '',
         'ansHtml' : '',
         'cached' : False,
         'colInfo' : None,
@@ -589,7 +591,6 @@ def makeAnswerHtml(sys):
         html += ''' (Cached result)<br>'''
     else:
         html += '''<br>'''
-        pass
     if s[sys]['err'] is not None and len(s[sys]['err']) > 5:
         errMsg = str(s[sys]['err'])
         errMsg = errMsg.replace('\n','<br>')
@@ -619,8 +620,8 @@ def makeAnswerHtml(sys):
             pass
         html += '''</tr>'''
     html += '''</table>'''
-    for notice in s[sys]['notices']:
-        html += f'''<hr><font color="red">{notice}</font>'''
+    if len(s[sys]['notices']) > 5:
+        html += f'''<hr><font color="red">{s[sys]['notices']}</font>'''
     s[sys]['ansHtml'] = html
     return
 
@@ -630,7 +631,7 @@ def readFromCache(s,user):
         s[sys]['cached'] = False
         sql = s[sys]['sql']
         key = makeKeyFromSql(sql)
-        query = f'''SELECT ans, err, colInfo, rows, duration
+        query = f'''SELECT ans, err, colInfo, rows, duration, notices
                 FROM cache
                 WHERE query = '{key}' AND sys = '{sys}';'''
         c.execute(query)
@@ -644,6 +645,7 @@ def readFromCache(s,user):
         s[sys]['colInfo'] = simplejson.loads(ans[0][2])
         s[sys]['numRows'] = ans[0][3]
         s[sys]['duration'] = ans[0][4]
+        s[sys]['notices'] = ans[0][5]
         s[sys]['cached'] = True
         global us
         #pp.pprint(us[user])
@@ -725,6 +727,11 @@ def addExampleToCache(s,ex,sys):
     colInfoStr = simplejson.dumps(s[sys]['colInfo'])
     if s[sys]['err']:
         errMsg = s[sys]['err'].replace("'","''")
+        if 'expectErr' not in ex or ex['expectErr'] == False:
+            # We don't expect to get an error, so don't cache anything.
+            # In this way, we will try this cache entry again next time.
+            html += f'''    <font color="red">FAILED</font><br>'''
+            return html
     else:
         errMsg = s[sys]['err']
     insert = f'''INSERT INTO cache VALUES (
@@ -734,7 +741,8 @@ def addExampleToCache(s,ex,sys):
               '{errMsg}',
               '{colInfoStr}',
               {s[sys]['numRows']},
-              {s[sys]['duration']});
+              {s[sys]['duration']},
+              '{s[sys]['notices']}');
             '''
     print(insert)
     c.execute(insert)
@@ -771,7 +779,17 @@ def doQuery(params):
     #print(connStr)
     conn = psycopg2.connect(connStr, async_=1)
     while True:
-        state = conn.poll()
+        try:
+            state = conn.poll()
+        except (psycopg2.Error, psycopg2.ProgrammingError, psycopg2.OperationalError) as e:
+            end = time.perf_counter()
+            error = str(f"{e}")
+            s[sys]['err'] = error
+            s[sys]['duration'] = 0
+            if s[sys]['conn']:
+                s[sys]['conn'].close()
+            s[sys]['conn'] = None
+            return
         if state == psycopg2.extensions.POLL_OK:
             break
         gevent.sleep(0.05)
@@ -784,7 +802,7 @@ def doQuery(params):
     s[sys]['err'] = None
     try:
         cur.execute(sql)
-    except (psycopg2.Error, psycopg2.ProgrammingError) as e:
+    except (psycopg2.Error, psycopg2.ProgrammingError, psycopg2.OperationalError) as e:
         end = time.perf_counter()
         print(f"Error is '{e}'")
         s[sys]['err'] = e
@@ -819,13 +837,13 @@ def doQuery(params):
     #pp.pprint(s[sys]['ans'])
     #pp.pprint(s[sys]['colInfo'])
     end = time.perf_counter()
-    s[sys]['notices'] = []
+    s[sys]['notices'] = ''
     if len(s[sys]['conn'].notices):
         # There are notices
         for notice in s[sys]['conn'].notices:
             if '[Debug]' in notice:
                 continue
-            s[sys]['notices'].append(notice)
+            s[sys]['notices'] += notice
     s[sys]['ans'] = setPrecision(s[sys]['ans'])
     s[sys]['duration'] = round(end - start,3)
     s[sys]['conn'].close()
@@ -853,7 +871,8 @@ def buildDatabase():
              err text,
              colInfo text,
              rows integer, 
-             duration real);
+             duration real,
+             notices text);
              ''')
     c.execute('''CREATE TABLE IF NOT EXISTS users
              (cookie text, example int, name text, org text)''')
@@ -1084,6 +1103,7 @@ def doRun():
     s['native']['ans'] = []
     s['native']['ansHtml'] = ''
     s['native']['cached'] = False
+    print(f"Example index is {s['example']}")
     jobs = []
     s['dbname'] = str(request.POST.get('database'))
     print(s['dbname'])

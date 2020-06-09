@@ -62,11 +62,7 @@ Aircloak accepts the MySQL "SHOW tables" command.
 <p class="desc">
 Note that Aircloak indicates whether a table is
 <a target=_blank href="https://demo.aircloak.com/docs/ops/configuration.html#insights-cloak-configuration">
-personal or non-personal</a>. Non-personal tables are not anonymized.
-<p class="desc">
-The table <span style="font-family:'Courier New'">cli_names</span> does nothing more than associate the integer value in column
-<span style="font-family:'Courier New'">cli_district_id</span>
-with the name of the city for that district. It contains no user information and so is marked non-personal.
+personal or non-personal</a>. Non-personal tables contain no user-specific data and are not anonymized.
 ''',
     
     "dbname": "banking",
@@ -301,7 +297,7 @@ JOIN (
     FROM cli_names) t3
 ON t1.cli_district_id = t3.cli_district_id
 GROUP BY 1,2
-ORDER BY 3 DESC
+ORDER BY 1
 '''
     },
     "native": {
@@ -324,7 +320,7 @@ JOIN (
     FROM cli_names) t3
 ON t1.cli_district_id = t3.cli_district_id
 GROUP BY 1,2
-ORDER BY 3 DESC
+ORDER BY 1
 '''
     }
   },
@@ -388,6 +384,10 @@ From these examples you will learn about:
 </ul>
 <p class="desc">
 The following examples are best selected in order.
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql/query-results.html#zero-mean-noise
+">here</a>.
 ''',
     "dbname": "",
     "cloak": {
@@ -576,6 +576,10 @@ ORDER BY 1 DESC
     "description": '''
 <p class="desc">
 Aircloak suppresses answers that pertain to too few individuals. The following set of example illustrate this anonymization feature.
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql/query-results.html#low-count-filtering
+">here</a>.
 ''',
     "dbname": "",
     "cloak": {
@@ -635,7 +639,7 @@ In this case, rather than return
 &nbsp<span style="font-family:'Courier New'">*</span>&nbsp
 as the default symbol for identifying the suppression bucket, Aircloak returns
 &nbsp<span style="font-family:'Courier New'">NULL</span>&nbsp
-(which here is displayed as 'None' because of the python implementation). Aircloak can't return
+(which here is displayed as 'None' because of the python implementation of this training program). Aircloak can't return
 &nbsp<span style="font-family:'Courier New'">*</span>&nbsp
 for numbers because
 &nbsp<span style="font-family:'Courier New'">*</span>&nbsp

@@ -336,6 +336,13 @@ def makeHtml():
       font-size: 20;
       cursor: pointer;
       border-radius: 8px;
+      box-shadow: 0 4px #999;
+    }}
+    .button:hover {{background-color: #0000FF}}
+    .button:active {{
+      background-color: #0000FF;
+      box-shadow: 0 5px #666;
+      transform: translateY(4px);
     }}
     .button-run {{
       background-color: #3498DB;

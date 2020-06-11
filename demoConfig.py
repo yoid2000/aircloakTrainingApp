@@ -407,7 +407,7 @@ They correspond to the functions 'count()', 'sum()', 'avg()', 'stddev()', and 'v
 <p class="desc">
 Aircloak adds random noise according to a Gaussian distribution ("bell curve"). The 'aggr_noise()' value is the standard deviation of the Gaussian sample.
 <p class="desc">
-From the query below, we see that a noise value with a standard deviation of 1.0 was added to the answer.
+From the query below, we see that a noise value with a standard deviation of 1.2 was added to the answer.
 <p class="desc">
 ''',
     "dbname": "banking",
@@ -432,7 +432,7 @@ FROM accounts
 Aircloak has a unique way of adding noise which we call "sticky layered noise".  Sticky means that the same query produces the same noise. Try re-running the query, and you will see that you get the same noisy answer every time.
 <p class="desc">
 Layered means that there are multiple noise values, one or two per condition.
-The query here is the same as the previous, with the exception that one condition has been added. The amount of noise has increased from standard deviation 1.0 to sqrt(2), which Aircloak rounds to 1.4.
+The query here is the same as the previous, with the exception that one condition has been added. The amount of noise has increased from standard deviation 1.0 to sqrt(2), which Aircloak rounds to 2.0.
 ''',
     "dbname": "banking",
     "cloak": {
@@ -455,7 +455,7 @@ WHERE cli_district_id = 1
     "heading": "Two conditions",
     "description": '''
 <p class="desc">
-Now with two conditions, the noise increases to standard deviation of 2.0.
+Now with two conditions, the noise increases to standard deviation of 2.5.
 ''',
     "dbname": "banking",
     "cloak": {

@@ -254,7 +254,7 @@ FROM transactions'''
       "sql": '''
 SELECT bucket(sums by 20000) AS amount,
        count(*)
-FROM (SELECT client_id,
+FROM (SELECT account_id,
              sum(amount) AS sums
       FROM transactions
       GROUP BY 1) t
@@ -265,7 +265,7 @@ ORDER BY 1'''
       "sql": '''
 SELECT floor(sums/20000)*20000 AS amount,
        count(*)
-FROM (SELECT client_id,
+FROM (SELECT account_id,
              sum(amount) AS sums
       FROM transactions
       GROUP BY 1) t

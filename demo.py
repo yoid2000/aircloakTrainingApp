@@ -774,8 +774,10 @@ def doQuery(params):
     print(f"doQuery: {sys}")
     print("SQL is:")
     print(sql)
-    sql = sql.replace('\n',' ')
-    sql = sql.replace('\r',' ')
+    # Not 100% sure why the following is necessary. Without it, though,
+    # there isn't white-space between SQL objects and so the query fails
+    sql = sql.replace('\n','\n ')
+    sql = sql.replace('\r','\n ')
     connStr = f'''
             host={ss[sys]['host']}
             port={ss[sys]['port']}
@@ -864,6 +866,16 @@ def reloadExamples():
     s['exampleList'] = getExampleList()
     makeDbPulldown()
     makeExamplesHtml()
+    return
+
+def clearCache():
+    global ss
+    db = ss['dbPath']
+    conn = sqlite3.connect(db)
+    c = conn.cursor()
+    c.execute('''DROP TABLE IF EXISTS cache''')
+    conn.close()
+    buildDatabase()
     return
 
 def buildDatabase():
@@ -1038,6 +1050,11 @@ def doConsent():
 @route('/populateCache')
 def doPop():
     return populateCache()
+
+@route('/clearCache')
+def doClear():
+    clearCache()
+    return("Cache cleared")
 
 @route('/training')
 def doDemo():

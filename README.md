@@ -29,6 +29,8 @@ Add menu items to demoConfig.py.
 ### Populating the cache
 The app keeps query answers in a cache for immediate display.
 
+The URL `domain:port/clearCache` clears the cache.
+
 The URL `domain:port/populateCache` adds any example entries not already in the cache to the cache.
 
 The URL `domain:port/cache/n` adds the nth example entry to the cache, overwriting the previous entry is there was one.

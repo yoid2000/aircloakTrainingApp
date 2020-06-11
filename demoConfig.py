@@ -27,7 +27,7 @@ A series of examples are listed on the left. Each example provides SQL queries f
     <p class="desc">
     For users new to the system, it is useful to take the examples in the order provided.
     <p class="desc">
-    The app displays the results of a cached query. Click "Run" to re-execute the query for both Aircloak and native, or to execute any changes you made to the SQL.
+    The app displays the results of a cached query. Click "Run" to re-execute the query for both Aircloak and native, or to execute any changes you make to the SQL.
     <p class="desc">
     This app has access to several different databases; <a target=_blank href="https://www.gda-score.org/resources/databases/czech-banking-data/">banking</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/usa-census-database/">census0</a>, <a target=_blank href="https://www.gda-score.org/resources/databases/database-2/">scihub</a>, and <a target=_blank href="https://www.gda-score.org/resources/databases/database-1/">taxi</a>. You must select the appropriate database from the pull-down menu if you write a query.
     <p class="desc">
@@ -281,17 +281,17 @@ ORDER BY 1'''
       "sql": '''
 SELECT t3.cli_district_id AS cli,
        t3.city_name AS city,
-       count(DISTINCT t1.client_id)
+       count(DISTINCT t1.account_id)
 FROM (
-    SELECT client_id, cli_district_id
+    SELECT account_id, cli_district_id
     FROM accounts) t1
 JOIN (
-    SELECT client_id
+    SELECT account_id
     FROM transactions
     GROUP BY 1
     HAVING avg(balance)
            BETWEEN 0 AND 50000) t2
-ON t1.client_id = t2.client_id
+ON t1.account_id = t2.account_id
 JOIN (
     SELECT cli_district_id, city_name
     FROM cli_names) t3
@@ -304,17 +304,17 @@ ORDER BY 1
       "sql": '''
 SELECT t3.cli_district_id AS cli,
        t3.city_name AS city,
-       count(DISTINCT t1.client_id)
+       count(DISTINCT t1.account_id)
 FROM (
-    SELECT client_id, cli_district_id
+    SELECT account_id, cli_district_id
     FROM accounts) t1
 JOIN (
-    SELECT client_id
+    SELECT account_id
     FROM transactions
     GROUP BY 1
     HAVING avg(balance)
            BETWEEN 0 AND 50000) t2
-ON t1.client_id = t2.client_id
+ON t1.account_id = t2.account_id
 JOIN (
     SELECT cli_district_id, city_name
     FROM cli_names) t3
@@ -613,7 +613,7 @@ is a last name. From this we see that there are over 4100 users whose last names
     "cloak": {
       "sql": '''
 SELECT lastname,
-       count(DISTINCT client_id)
+       count(DISTINCT account_id)
 FROM accounts
 GROUP BY 1
 ORDER BY 2 DESC
@@ -622,7 +622,7 @@ ORDER BY 2 DESC
     "native": {
       "sql": '''
 SELECT lastname,
-       count(DISTINCT client_id)
+       count(DISTINCT account_id)
 FROM accounts
 GROUP BY 1
 ORDER BY 2 DESC
@@ -823,7 +823,7 @@ filter.
 SELECT lastname
 FROM accounts
 GROUP BY lastname
-HAVING count(DISTINCT client_id) = 2
+HAVING count(DISTINCT account_id) = 2
 ORDER BY lastname DESC
 '''
     },
@@ -832,7 +832,7 @@ ORDER BY lastname DESC
 SELECT lastname
 FROM accounts
 GROUP BY lastname
-HAVING count(DISTINCT client_id) = 2
+HAVING count(DISTINCT account_id) = 2
 ORDER BY lastname DESC
 '''
     }
@@ -902,7 +902,7 @@ SELECT lastname,
        count_noise(*) AS noise
 FROM transactions
 GROUP BY lastname
-HAVING count(DISTINCT client_id) = 2
+HAVING count(DISTINCT account_id) = 2
 ORDER BY lastname
 '''
     },
@@ -910,7 +910,7 @@ ORDER BY lastname
       "sql": '''
 SELECT lastname as name,
        count(*),
-       count(DISTINCT client_id) AS users
+       count(DISTINCT account_id) AS users
 FROM transactions
 WHERE lastname in ('Aguilar', 'Andrews', 'Armstrong', 'Austin', 'Bishop', 'Boyd', 'Burke', 'Carlson', 'Doyle', 'Duncan', 'Duran', 'Elliott', 'Ellis', 'Guzman', 'Hayes', 'Holland', 'Howell', 'Jenkins', 'Jimenez', 'Kelley', 'Kennedy', 'Matthews', 'Mendez', 'Morales', 'Munoz', 'Obrien', 'Olson', 'Schultz', 'Vasquez', 'Wells')
 GROUP BY 1
@@ -1168,6 +1168,295 @@ FROM jan08
 WHERE pickup_datetime BETWEEN
     '2013-01-08 09:00:00' AND
     '2013-01-08 09:59:59'
+'''
+    }
+  },
+  {
+    "heading": "Unit of Protection",
+    "description": '''
+<p class="desc">
+All personal tables must have a column defined that identifies the thing being protected. Normally this is an individual, but it can be something else, for instance a household or an account.
+<p class="desc">
+It is important that the analyst understands which column identifies the unit of protection. The reason why will be shown in the section "Subqueries".
+<p class="desc">
+In this section, we give several examples for units of protection.
+<p class="desc">
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/ops/configuration.html#insights-cloak-configuration
+">here</a>.
+''',
+    "dbname": '',
+    "cloak": {
+      "sql": ''
+    },
+    "native": {
+      "sql": ''
+    }
+  },
+  {
+    "heading": "Individual",
+    "description": '''
+<p class="desc">
+Here we show the column definitions for the jan08 table of the taxi database.
+One column has a key type of "user_id". This is the "hack" column.
+By default, the column that identifies the unit of protection has a key type of "user_id", though this can be changed by configuration.
+<p class="desc">
+The "hack" is the identifier for the taxi driver, and so it is an individual that is being protected. (Note that the taxi database does not contain identifiers for passengers.)
+''',
+    "dbname": "taxi",
+    "cloak": {
+      "sql": '''
+SHOW columns FROM jan08'''
+    },
+    "native": {
+      "sql": '''
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name   = 'jan08' '''
+    }
+  },
+  {
+    "heading": "Account",
+    "description": '''
+<p class="desc">
+Here we show the column definitions for the accounts table of the banking database.
+The "account_id" column is key type "user_id", and is here the unit of protection.
+Note that the accounts table also has an identifier for the individual, which is the "client_id".
+<p class="desc">
+The reason that we protect the account instead of the individual is because many accounts are joint accounts, and so have two individuals associated with them. Since it is possible to view records that pertain to two protected units, it is possible that a small amount of data may occasionally be leaked about single accounts. The owners of these accounts would no doubt regard this as a privacy violation.
+<p class="desc">
+On the other hand, every individual (client_id) is associated with only one account. (You can't learn this from Aircloak: the system administrator has to know it.) Since client_id is a subset of account_id, by protecting the account_id, the client_id is automatically also protected.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SHOW columns FROM accounts'''
+    },
+    "native": {
+      "sql": '''
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name   = 'accounts' '''
+    }
+  },
+  {
+    "heading": "IP address",
+    "description": '''
+<p class="desc">
+Here we show the column definitions for the sep2015 table of the scihub database.
+The "uid" column is key type "user_id", and is here the unit of protection.
+The scihub database contains a log of downloads of research papers from the Sci-hub website.
+The "uid" column actually consists of hashes of the IP address used when the access was made. This is the closest thing to the individual user in this database, and so is chosen as the unit of protection.
+<p class="desc">
+Note that this means that a user who accesses Sci-hub from multiple different IP addresses is strictly speaking not necessarily protected.
+For example, if a single individual was the only Sci-hub user from a given city, and happened to download documents from 4 or 5 IP addresses, and the analyst knew that this was the case, then the analyst could discover private information about this individual.
+While theoretically possible, the likelihood of this is remote.
+''',
+    "dbname": "scihub",
+    "cloak": {
+      "sql": '''
+SHOW columns FROM sep2015'''
+    },
+    "native": {
+      "sql": '''
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name   = 'sep2015' '''
+    }
+  },
+  {
+    "heading": "Subqueries",
+    "description": '''
+<p class="desc">
+Aircloak supports subqueries. Subqueries are processed from inner-most to outer-most query. Aircloak may anonymize at the end of the sequence of queries, or may in fact anonymize before the last query in the sequence. Where this happens depends on the query itself.
+<p class="desc">
+From these examples you will learn about:
+<ul>
+<li>&nbsp&nbsp&nbsp&nbsp Restricted queries
+<li>&nbsp&nbsp&nbsp&nbsp Anonymizing queries
+<li>&nbsp&nbsp&nbsp&nbsp Standard queries
+<li>&nbsp&nbsp&nbsp&nbsp Personal and non-personal tables
+</ul>
+<p class="desc">
+Read more 
+<a target=_blank href="
+https://demo.aircloak.com/docs/sql.html#query-and-subquery-types
+">here</a>.
+''',
+    "dbname": "",
+    "cloak": {
+      "sql": ""
+    },
+    "native": {
+      "sql": ""
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspA bad query",
+    "description": '''
+<p class="desc">
+Suppose you want a histogram where the X axis is the number of transactions, and the Y axis is the number of distinct acct_date values with the given number of transactions.
+<p class="desc">
+You might compose the query shown here. The subquery counts the number of transactions per acct_date (as
+<span style="font-family:'Courier New'">nt</span>
+) and the outer query places each acct_date in the appropriate bucket, and counts the number of acct_date's per bucket.
+<p class="desc">
+<font color="red">
+The Aircloak answer here is extremely bad! What happened?
+</font>
+<p class="desc">
+The problem here is that
+the subquery (labeled "ANONYMIZING QUERY") is being anonymized by Aircloak. In other words, Aircloak fully anonymizes the subquery before handing the results of the subquery to the outer query (labeled "STANDARD QUERY" because once the subquery is anonymized, it can subsequently be handled as standard, unrestricted SQL).
+<p class="desc">
+The only clue that something might be amiss is the last row of the cloak answer, which indicates that one of the acct_date values has over 500K transactions and appears to be an extreme outlier.
+<p class="desc">
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+-- STANDARD QUERY
+SELECT round(nt/500)*500 AS num_trans,
+       count(*) AS num_dates
+FROM (
+    -- ANONYMIZING QUERY
+    SELECT acct_date, count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT (round(nt/500)*500)::int
+           AS num_trans,
+       count(*) AS num_dates
+FROM (
+    SELECT acct_date, count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspThe anonymizing subquery",
+    "description": '''
+<p class="desc">
+The query here is the subquery from the previous example's "bad query".
+<p class="desc">
+From the answer, we see from the 'None' bucket that substantial suppression has taken place. The large majority of acct_date values have too few users associated with them, and so are suppressed and reported in the 'None' bucket.
+<p class="desc">
+Of course, it is possible that in fact most of the acct_date values in the database are in fact NULL.
+To test this, the analyst can use the condition
+<span style="font-family:'Courier New'">WHERE acct_date IS NOT NONE</span>
+to verify that the suppression has taken place.
+In this case, the 'None' bucket would still exist and so suppression is taking place.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+SELECT acct_date, count(*) AS nt
+FROM transactions
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT acct_date, count(*) AS nt
+FROM transactions
+GROUP BY 1
+ORDER BY 2 DESC
+'''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspSmarter query (not?)",
+    "description": '''
+<p class="desc">
+Unfortunately it is not clear that it is possible to replicate the bad query using Aircloak.
+<p class="desc">
+One alternative, shown here, is to ask a different query, but one that might nevertheless suit the analyst's need. In this query, we have substituted account_id for acct_date.
+<p class="desc">
+<font color="red">
+This query is accurate!
+</font>
+This is because the subquery (here labeled "RESTRICTED QUERY") is not anonymizing. Rather, it is the outer query that is anonymizing. Since the outer query forms good-sized aggregates (buckets of width 100), there is no suppression and the resulting answer is accurate.
+<p class="desc">
+The subquery is not anonymizing because it selects the account_id column, which is the unit of protection (the "user_id" type column). As long as the "user_id" type column is selected, it is possible to put off anonymization until later in the query processing.
+<p class="desc">
+Note that, because the outer query is not a standard query, the special Aircloak function bucket() must be used instead of round() to produce the histogram buckets.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+-- ANONYMIZING QUERY
+SELECT bucket(nt BY 100) AS num_trans,
+       count(*) AS num_dates
+FROM (
+    -- RESTRICTED QUERY
+    SELECT account_id, count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
+      '''
+    },
+    "native": {
+      "sql": '''
+SELECT round(nt/100)*100 AS num_trans,
+       count(*) AS num_dates
+FROM (
+    SELECT account_id, count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
+      '''
+    }
+  },
+  {
+    "heading": "-&nbsp&nbsp&nbspA better query",
+    "description": '''
+<p class="desc">
+This query is similar to the "bad query" in that the subquery is anonymizing. However, we have substituted acct_district_id (77 distinct values) for acct_date (1500+ distinct values).
+The results are substantially more accurate, though some of the relative errors are still rather high.
+<p class="desc">
+The subquery is anonymizing because the "user_id" type column is not selected. The answers are reasonably accurate, however, because there is no suppression in the subquery: the aggregate in the subquery (acct_district_id) is large enough to avoid suppression.
+<p class="desc">
+The subquery is labeled "RESTRICTED QUERY" because it is not anonymizing, but it is also not standard and so Aircloak SQL restrictions apply.
+''',
+    "dbname": "banking",
+    "cloak": {
+      "sql": '''
+-- STANDARD QUERY
+SELECT round(nt/1000)*1000 AS num_trans,
+       count(*) AS num_districts
+FROM (
+    -- ANONYMIZING QUERY
+    SELECT acct_district_id,
+           count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
+'''
+    },
+    "native": {
+      "sql": '''
+SELECT (round(nt/1000)*1000)::int
+           AS num_trans,
+       count(*) AS num_districts
+FROM (
+    SELECT acct_district_id,
+           count(*) AS nt
+    FROM transactions
+    GROUP BY 1) t
+GROUP BY 1
+ORDER BY 1
 '''
     }
   },
